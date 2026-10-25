@@ -12,8 +12,8 @@ class ManHourController extends Controller
 {
     public function index(Request $request)
     {
-        $year = (int) $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100']])['year'] ?? now()->year;
-        $year = $year ?: now()->year;
+        $filters = $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100']]);
+        $year = (int) ($filters['year'] ?? now()->year);
 
         $locations = Location::active()->ordered()->get(['id', 'name', 'code']);
         $hours = ManHour::where('year', $year)->get()->groupBy('location_id')->map(fn ($rows) => $rows->pluck('hours', 'month'));

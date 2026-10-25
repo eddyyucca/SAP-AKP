@@ -10,6 +10,13 @@
                     <i class="bi bi-layout-sidebar fs-5"></i>
                 </button>
 
+                @unless (request()->routeIs('ssap.home'))
+                    @php($explicitBack = trim($__env->yieldContent('back-url')))
+                    <a href="{{ $explicitBack ?: route('ssap.home') }}" class="topbar-btn" data-back @if ($explicitBack) data-back-explicit @endif title="Kembali" aria-label="Kembali">
+                        <i class="bi bi-arrow-left fs-5"></i>
+                    </a>
+                @endunless
+
                 <div class="min-w-0">
                     <nav class="d-none d-lg-block" aria-label="breadcrumb">
                         <ol class="breadcrumb mb-0" style="font-size:.78rem;">

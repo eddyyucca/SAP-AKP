@@ -85,6 +85,21 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+<script>
+// Tombol "Kembali" di header (pola HRIS). Halaman anak punya induk tetap (data-back-explicit); selain itu kembali ke halaman
+// sebelumnya bila datang dari aplikasi ini, kalau tidak ke Beranda.
+document.addEventListener('click', function (e) {
+    const back = e.target.closest('[data-back]');
+    if (!back || back.hasAttribute('data-back-explicit') || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    try {
+        const ref = document.referrer ? new URL(document.referrer) : null;
+        if (ref && ref.origin === location.origin && ref.href !== location.href && history.length > 1) {
+            e.preventDefault();
+            history.back();
+        }
+    } catch (err) { /* href ke Beranda tetap berjalan */ }
+});
+</script>
 @stack('scripts')
 </body>
 </html>

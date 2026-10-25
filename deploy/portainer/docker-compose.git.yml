@@ -58,6 +58,53 @@ services:
       PORTAL_APP_CODE: ${PORTAL_APP_CODE:-ssap-safety}   # harus sama dengan KODE modul di Portal
       PORTAL_SSO_SECRET: ${PORTAL_SSO_SECRET}
       AUTO_MIGRATE: "true"
+      HRIS_API_URL: ${HRIS_API_URL:-https://hris.lameruru.web.id}
+      HRIS_API_TOKEN: ${HRIS_API_TOKEN:-}              # kosong = pencarian karyawan mati, formulir diisi manual
+      MAILSVC_URL: ${MAILSVC_URL:-https://mail.lameruru.web.id}
+      MAILSVC_TOKEN: ${MAILSVC_TOKEN:-}                # kosong = email memakai MAIL_* Laravel
+      SSAP_NOTIFY_HSE: ${SSAP_NOTIFY_HSE:-}
+      SSAP_NOTIFY_MANAGER: ${SSAP_NOTIFY_MANAGER:-}
+      SSAP_NOTIFY_SEVERE: ${SSAP_NOTIFY_SEVERE:-}
+    volumes:
+      - ssap_storage:/var/www/html/storage
+
+  # Penjadwal: sinkron HRIS tiap jam, pengingat tindakan + ringkasan HSE tiap pagi (image sama, perintah berbeda).
+  scheduler:
+    image: ghcr.io/eddyyucca/akp-ssap-safety:${SSAP_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: "SSAP Safety"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${SSAP_URL:-https://ssap.lameruru.web.id}
+      APP_TIMEZONE: Asia/Makassar
+      APP_LOCALE: id
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: warning
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: akp_ssap_safety
+      DB_USERNAME: ssap
+      DB_PASSWORD: ${DB_PASSWORD}
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+      PORTAL_URL: ${PORTAL_URL:-https://portal.lameruru.web.id}
+      PORTAL_APP_CODE: ${PORTAL_APP_CODE:-ssap-safety}
+      PORTAL_SSO_SECRET: ${PORTAL_SSO_SECRET}
+      HRIS_API_URL: ${HRIS_API_URL:-https://hris.lameruru.web.id}
+      HRIS_API_TOKEN: ${HRIS_API_TOKEN:-}
+      MAILSVC_URL: ${MAILSVC_URL:-https://mail.lameruru.web.id}
+      MAILSVC_TOKEN: ${MAILSVC_TOKEN:-}
+      SSAP_NOTIFY_HSE: ${SSAP_NOTIFY_HSE:-}
+      SSAP_NOTIFY_MANAGER: ${SSAP_NOTIFY_MANAGER:-}
+      SSAP_NOTIFY_SEVERE: ${SSAP_NOTIFY_SEVERE:-}
     volumes:
       - ssap_storage:/var/www/html/storage
 

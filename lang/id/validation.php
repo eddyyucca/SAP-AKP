@@ -1,0 +1,52 @@
+<?php
+
+return [
+    'array' => ':Attribute harus berupa daftar.',
+    'after_or_equal' => ':Attribute tidak boleh sebelum :date.',
+    'alpha_dash' => ':Attribute hanya boleh berisi huruf, angka, strip, dan garis bawah.',
+    'before_or_equal' => ':Attribute tidak boleh melewati :date.',
+    'between' => [
+        'numeric' => ':Attribute harus di antara :min dan :max.',
+        'string' => ':Attribute harus di antara :min dan :max karakter.',
+        'array' => ':Attribute harus berisi :min sampai :max butir.',
+    ],
+    'boolean' => ':Attribute harus berupa ya atau tidak.',
+    'date' => ':Attribute bukan tanggal yang valid.',
+    'email' => ':Attribute harus berupa alamat email yang valid.',
+    'exists' => ':Attribute yang dipilih tidak valid.',
+    'file' => ':Attribute harus berupa berkas.',
+    'in' => ':Attribute yang dipilih tidak valid.',
+    'integer' => ':Attribute harus berupa bilangan bulat.',
+    'max' => [
+        'numeric' => ':Attribute tidak boleh lebih dari :max.',
+        'file' => ':Attribute tidak boleh lebih dari :max KB.',
+        'string' => ':Attribute tidak boleh lebih dari :max karakter.',
+        'array' => ':Attribute tidak boleh lebih dari :max butir.',
+    ],
+    'mimes' => ':Attribute harus berkas bertipe: :values.',
+    'min' => [
+        'numeric' => ':Attribute minimal :min.',
+        'file' => ':Attribute minimal :min KB.',
+        'string' => ':Attribute minimal :min karakter.',
+        'array' => ':Attribute minimal :min butir.',
+    ],
+    'numeric' => ':Attribute harus berupa angka.',
+    'regex' => 'Format :attribute tidak valid.',
+    'required' => ':Attribute wajib diisi.',
+    'required_with' => ':Attribute wajib diisi bila :values diisi.',
+    'string' => ':Attribute harus berupa teks.',
+    'unique' => ':Attribute sudah dipakai.',
+    'uploaded' => ':Attribute gagal diunggah.',
+
+    'attributes' => [
+        'type' => 'jenis kejadian', 'severity' => 'keparahan', 'occurred_at' => 'waktu kejadian', 'observed_at' => 'waktu ditemukan',
+        'inspected_at' => 'waktu inspeksi', 'location_id' => 'lokasi', 'area_detail' => 'detail area', 'title' => 'judul',
+        'description' => 'uraian', 'immediate_action' => 'tindakan segera', 'likelihood' => 'kemungkinan', 'consequence' => 'konsekuensi',
+        'category' => 'kategori', 'due_date' => 'tenggat', 'pic_name' => 'nama PIC', 'pic_email' => 'email PIC', 'investigator_name' => 'nama investigator',
+        'investigator_email' => 'email investigator', 'root_cause' => 'akar masalah', 'note' => 'catatan', 'completion_note' => 'catatan penyelesaian',
+        'files' => 'lampiran', 'files.*' => 'lampiran', 'cost_estimate' => 'estimasi kerugian', 'code' => 'kode', 'name' => 'nama',
+        'persons.*.name' => 'nama orang terlibat', 'persons.*.role' => 'peran', 'persons.*.lost_days' => 'hari kerja hilang',
+        'target_per_month' => 'target per bulan', 'items' => 'butir pemeriksaan', 'hours.*.*' => 'jam kerja', 'year' => 'tahun',
+        'remind_days_before' => 'hari pengingat', 'notify_hse' => 'penerima HSE', 'notify_manager' => 'penerima manajemen', 'notify_severe' => 'penerima insiden berat',
+    ],
+];

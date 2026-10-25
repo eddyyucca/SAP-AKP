@@ -26,11 +26,19 @@ class Incident extends Model
         'why_chain' => 'array',
         'cost_estimate' => 'decimal:2',
         'reported_to_authority' => 'boolean',
+        'lpi_due' => 'date',
+        'lpi_submitted_at' => 'date',
+        'lpi_reviewed_at' => 'datetime',
     ];
 
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function contractor(): BelongsTo
+    {
+        return $this->belongsTo(Contractor::class);
     }
 
     public function persons(): HasMany
@@ -57,6 +65,18 @@ class Incident extends Model
                         ->where('corrective_actions.pic_nik', $user->employee_no));
             }
         });
+    }
+
+    /** Insiden kontraktor yang LPI-nya diwajibkan. */
+    public function scopeWithLpi(Builder $query): Builder
+    {
+        return $query->whereNotNull('lpi_status');
+    }
+
+    /** LPI belum diterima/perlu revisi dan sudah lewat tenggat. */
+    public function scopeLpiOverdue(Builder $query): Builder
+    {
+        return $query->whereIn('lpi_status', ['pending', 'revision'])->whereDate('lpi_due', '<', today());
     }
 
     public function scopeOpen(Builder $query): Builder
@@ -119,5 +139,31 @@ class Incident extends Model
     public function reportedLate(): bool
     {
         return $this->reportDelayHours() > $this->notifyLimitHours();
+    }
+
+    /** Jenis kejadian ini mewajibkan LPI bila terjadi di area kontraktor. */
+    public static function lpiRequiredFor(string $type): bool
+    {
+        return ! in_array($type, config('ssap.lpi_exempt_types', []), true);
+    }
+
+    public function lpiMeta(): ?array
+    {
+        return $this->lpi_status ? config('ssap.lpi_statuses.'.$this->lpi_status) : null;
+    }
+
+    public function lpiOverdue(): bool
+    {
+        return in_array($this->lpi_status, ['pending', 'revision'], true) && $this->lpi_due && $this->lpi_due->lt(today());
+    }
+
+    /** LPI diterima paling lambat pada tenggat. Null = belum diterima. */
+    public function lpiOnTime(): ?bool
+    {
+        if (! $this->lpi_submitted_at || ! $this->lpi_due) {
+            return null;
+        }
+
+        return $this->lpi_submitted_at->lte($this->lpi_due);
     }
 }

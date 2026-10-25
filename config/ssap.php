@@ -110,6 +110,25 @@ return [
 
     'body_parts' => ['Kepala', 'Mata', 'Wajah', 'Leher', 'Bahu', 'Lengan', 'Tangan / Jari', 'Punggung', 'Dada', 'Perut', 'Pinggul', 'Kaki', 'Telapak kaki / Jari kaki', 'Seluruh tubuh', 'Lainnya'],
 
+    // Kontraktor di area pertambangan: IUP (Izin Usaha Pertambangan) atau IUJP (Izin Usaha Jasa Pertambangan).
+    'contractor_areas' => [
+        'iup' => ['label' => 'IUP', 'full' => 'Izin Usaha Pertambangan', 'color' => '#203868'],
+        'iujp' => ['label' => 'IUJP', 'full' => 'Izin Usaha Jasa Pertambangan', 'color' => '#0891b2'],
+    ],
+
+    /*
+     * LPI (Laporan Penyelidikan Insiden) wajib disampaikan kontraktor untuk insiden di areanya.
+     * Tenggat = tanggal dilaporkan + jumlah hari (investigation_days). Jenis di bawah tidak mewajibkan LPI.
+     */
+    'lpi_exempt_types' => ['near_miss'],
+
+    'lpi_statuses' => [
+        'pending' => ['label' => 'Belum diterima', 'color' => 'warning', 'icon' => 'bi-hourglass-split'],
+        'submitted' => ['label' => 'Diterima, ditinjau', 'color' => 'info', 'icon' => 'bi-inbox'],
+        'revision' => ['label' => 'Perlu revisi', 'color' => 'danger', 'icon' => 'bi-arrow-counterclockwise'],
+        'accepted' => ['label' => 'Disetujui', 'color' => 'success', 'icon' => 'bi-patch-check'],
+    ],
+
     'person_roles' => ['korban' => 'Korban', 'saksi' => 'Saksi', 'pelaku' => 'Pihak terlibat'],
 
     'incident_statuses' => [

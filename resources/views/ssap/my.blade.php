@@ -7,13 +7,7 @@
 @endsection
 
 @section('content')
-<div class="ssap-hero p-4 mb-3 shadow-sm">
-    <div class="position-relative" style="z-index:1;">
-        <div class="small opacity-75">{{ now()->translatedFormat('l, d F Y') }}</div>
-        <h2 class="h4 fw-bold mb-1 mt-1">Halo, {{ $portalUser->name }}</h2>
-        <div class="opacity-75 small">Keselamatan dimulai dari kita. Lihat bahaya? Laporkan sekarang, sekecil apa pun.</div>
-    </div>
-</div>
+<p class="text-muted small mb-3">Keselamatan dimulai dari kita. Lihat bahaya? Laporkan sekarang, sekecil apa pun.</p>
 
 <div class="row g-3 mb-3">
     <div class="col-12 col-md-6 col-lg-4">

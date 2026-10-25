@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\Hazard;
 use App\Models\Incident;
+use App\Models\Inspection;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\ServiceProvider;
@@ -21,7 +23,10 @@ class AppServiceProvider extends ServiceProvider
         Relation::morphMap([
             'incident' => Incident::class,
             'hazard' => Hazard::class,
+            'inspection' => Inspection::class,
         ]);
+
+        Paginator::useBootstrapFive();
 
         Carbon::setLocale('id');
     }

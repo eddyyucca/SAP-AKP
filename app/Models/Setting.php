@@ -21,7 +21,7 @@ class Setting extends Model
     /** Nilai pengaturan; bila belum pernah disimpan, memakai bawaan di config/ssap.php. */
     public static function value(string $key, ?string $default = null): ?string
     {
-        self::$memo ??= self::load();
+        self::$memo ??= self::loadAll();
 
         return self::$memo[$key] ?? config("ssap.defaults.$key", $default);
     }
@@ -48,7 +48,7 @@ class Setting extends Model
             ->unique()->values()->all();
     }
 
-    private static function load(): array
+    private static function loadAll(): array
     {
         try {
             return Schema::hasTable('settings') ? self::query()->pluck('value', 'key')->all() : [];

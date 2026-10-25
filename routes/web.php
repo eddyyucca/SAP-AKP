@@ -2,11 +2,15 @@
 
 use App\Http\Controllers\ActionController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\ContractorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\HazardController;
 use App\Http\Controllers\IncidentController;
+use App\Http\Controllers\InspectionController;
+use App\Http\Controllers\InspectionTemplateController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\LpiController;
 use App\Http\Controllers\ManHourController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingController;
@@ -39,6 +43,12 @@ Route::middleware(['portal.role:admin,hse,manager,user', 'throttle:120,1'])->pre
     Route::get('hazard/{hazard}/ubah', [HazardController::class, 'edit'])->whereNumber('hazard')->name('hazards.edit');
     Route::put('hazard/{hazard}', [HazardController::class, 'update'])->whereNumber('hazard')->name('hazards.update');
 
+    // Inspeksi rutin: siapa pun yang berwenang melakukan inspeksi mengisi checklist; melihat dibatasi per laporan.
+    Route::get('inspeksi', [InspectionController::class, 'index'])->name('inspections.index');
+    Route::get('inspeksi/baru', [InspectionController::class, 'create'])->name('inspections.create');
+    Route::post('inspeksi', [InspectionController::class, 'store'])->middleware('throttle:30,1')->name('inspections.store');
+    Route::get('inspeksi/{inspection}', [InspectionController::class, 'show'])->whereNumber('inspection')->name('inspections.show');
+
     // Tindakan korektif: PIC memperbarui progres miliknya; penetapan dan verifikasi khusus HSE (di bawah).
     Route::get('tindakan', [ActionController::class, 'index'])->name('actions.index');
     Route::put('tindakan/{action}/progres', [ActionController::class, 'progress'])->whereNumber('action')->name('actions.progress');
@@ -58,9 +68,28 @@ Route::middleware(['portal.role:admin,hse,manager,user', 'throttle:120,1'])->pre
         Route::delete('tindakan/{action}', [ActionController::class, 'destroy'])->whereNumber('action')->name('actions.destroy');
         Route::delete('lampiran/{attachment}', [AttachmentController::class, 'destroy'])->whereNumber('attachment')->name('attachments.destroy');
 
+        Route::post('insiden/{incident}/lpi', [LpiController::class, 'update'])->whereNumber('incident')->name('incidents.lpi');
+
+        Route::get('kontraktor', [ContractorController::class, 'index'])->name('contractors.index');
+        Route::post('kontraktor', [ContractorController::class, 'store'])->name('contractors.store');
+        Route::put('kontraktor/{contractor}', [ContractorController::class, 'update'])->whereNumber('contractor')->name('contractors.update');
+        Route::delete('kontraktor/{contractor}', [ContractorController::class, 'destroy'])->whereNumber('contractor')->name('contractors.destroy');
+
+        Route::get('inspeksi-template', [InspectionTemplateController::class, 'index'])->name('inspection-templates.index');
+        Route::post('inspeksi-template', [InspectionTemplateController::class, 'store'])->name('inspection-templates.store');
+        Route::put('inspeksi-template/{template}', [InspectionTemplateController::class, 'update'])->whereNumber('template')->name('inspection-templates.update');
+        Route::delete('inspeksi-template/{template}', [InspectionTemplateController::class, 'destroy'])->whereNumber('template')->name('inspection-templates.destroy');
+
         Route::get('jam-kerja', [ManHourController::class, 'index'])->name('manhours.index');
         Route::post('jam-kerja', [ManHourController::class, 'store'])->name('manhours.store');
     });
+
+    Route::middleware('portal.role:admin,hse,manager')->group(function () {
+        Route::get('lpi', [LpiController::class, 'index'])->name('lpi.index');
+        Route::get('lpi/ekspor', [LpiController::class, 'export'])->name('lpi.export');
+    });
+
+    Route::get('inspeksi-dashboard', [InspectionController::class, 'dashboard'])->middleware('portal.role:admin,hse,manager')->name('inspections.dashboard');
 
     // Laporan & analisis: admin, HSE, manajer.
     Route::middleware('portal.role:admin,hse,manager')->prefix('laporan')->name('reports.')->group(function () {
@@ -72,6 +101,7 @@ Route::middleware(['portal.role:admin,hse,manager,user', 'throttle:120,1'])->pre
     // Administrator: master data, pengaturan, hapus laporan.
     Route::middleware('portal.role:admin')->group(function () {
         Route::delete('insiden/{incident}', [IncidentController::class, 'destroy'])->whereNumber('incident')->name('incidents.destroy');
+        Route::delete('inspeksi/{inspection}', [InspectionController::class, 'destroy'])->whereNumber('inspection')->name('inspections.destroy');
         Route::delete('hazard/{hazard}', [HazardController::class, 'destroy'])->whereNumber('hazard')->name('hazards.destroy');
 
         Route::get('lokasi', [LocationController::class, 'index'])->name('locations.index');

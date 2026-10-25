@@ -249,6 +249,73 @@ class Notifier
         });
     }
 
+    /** Kontraktor diminta menyampaikan LPI (insiden baru di areanya). */
+    public function lpiRequested(Incident $incident): void
+    {
+        $this->safely(function () use ($incident) {
+            $incident->loadMissing('contractor');
+            if (! $incident->contractor || ! $incident->lpi_due) {
+                return;
+            }
+
+            $this->deliver(
+                [$incident->contractor->pic_email],
+                'Mohon LPI insiden '.$incident->number.' - '.$incident->contractor->name,
+                'Permintaan LPI (Laporan Penyelidikan Insiden)',
+                'Terjadi insiden di area kerja perusahaan Anda. Mohon sampaikan LPI kepada tim HSE AKP paling lambat pada tanggal tenggat.',
+                $this->incidentRows($incident) + ['Kontraktor' => $incident->contractor->name, 'Tenggat LPI' => $incident->lpi_due->translatedFormat('d F Y')],
+                route('ssap.incidents.show', $incident),
+                '#ea580c',
+                'lpi',
+                $incident->number,
+                'Yth. '.($incident->contractor->pic_name ?: 'PIC Kontraktor').',',
+            );
+        });
+    }
+
+    /** Hasil tinjauan HSE atas LPI: disetujui atau perlu revisi. */
+    public function lpiReviewed(Incident $incident): void
+    {
+        $this->safely(function () use ($incident) {
+            $incident->loadMissing('contractor');
+            $revise = $incident->lpi_status === 'revision';
+
+            $this->deliver(
+                [$incident->contractor?->pic_email],
+                ($revise ? 'LPI perlu revisi: ' : 'LPI disetujui: ').$incident->number,
+                $revise ? 'LPI dikembalikan untuk revisi' : 'LPI disetujui',
+                $revise ? 'LPI Anda ditinjau dan perlu diperbaiki. Mohon kirim ulang LPI yang sudah direvisi.' : 'LPI Anda telah ditinjau dan disetujui. Terima kasih.',
+                ['Insiden' => $incident->number.' - '.$incident->title, 'Kontraktor' => $incident->contractor?->name, 'Nomor LPI' => $incident->lpi_number, 'Catatan HSE' => $incident->lpi_note, 'Ditinjau oleh' => $incident->lpi_reviewed_by],
+                route('ssap.incidents.show', $incident),
+                $revise ? '#ea580c' : '#15803d',
+                'lpi',
+                $incident->number,
+                'Yth. '.($incident->contractor?->pic_name ?: 'PIC Kontraktor').',',
+            );
+        });
+    }
+
+    public function lpiReminder(Incident $incident): void
+    {
+        $this->safely(function () use ($incident) {
+            $incident->loadMissing('contractor');
+            $late = $incident->lpiOverdue();
+
+            $this->deliver(
+                [$incident->contractor?->pic_email],
+                ($late ? '[TERLAMBAT] ' : '[Pengingat] ').'LPI insiden '.$incident->number,
+                $late ? 'LPI melewati tenggat' : 'Pengingat tenggat LPI',
+                $late ? 'LPI untuk insiden berikut sudah melewati tenggat. Mohon segera disampaikan kepada HSE AKP.' : 'Tenggat penyampaian LPI untuk insiden berikut sudah dekat.',
+                ['Insiden' => $incident->number.' - '.$incident->title, 'Kontraktor' => $incident->contractor?->name, 'Tenggat LPI' => $incident->lpi_due?->translatedFormat('d F Y'), 'Status' => $incident->lpiMeta()['label'] ?? '', 'Catatan HSE' => $incident->lpi_note],
+                route('ssap.incidents.show', $incident),
+                $late ? '#b91c1c' : '#ea580c',
+                'reminder',
+                $incident->number,
+                'Yth. '.($incident->contractor?->pic_name ?: 'PIC Kontraktor').',',
+            );
+        });
+    }
+
     /** Ringkasan harian untuk HSE: item yang butuh perhatian. */
     public function digest(array $stats): void
     {

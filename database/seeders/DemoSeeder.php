@@ -6,6 +6,8 @@ use App\Models\ActivityLog;
 use App\Models\CorrectiveAction;
 use App\Models\Hazard;
 use App\Models\Incident;
+use App\Models\Inspection;
+use App\Models\InspectionTemplate;
 use App\Models\Location;
 use App\Models\ManHour;
 use App\Support\Numbering;
@@ -102,6 +104,7 @@ class DemoSeeder extends Seeder
         for ($m = $start->copy(); $m->lte($now); $m->addMonth()) {
             $this->incidentsFor($m->copy(), $locations, $now);
             $this->hazardsFor($m->copy(), $locations, $now);
+            $this->inspectionsFor($m->copy(), $locations, $now);
         }
     }
 
@@ -285,6 +288,56 @@ class DemoSeeder extends Seeder
         ]);
     }
 
+    /** Inspeksi rutin: sekitar 70-100% dari target tiap template, dengan skor dan temuan acak. */
+    private function inspectionsFor(Carbon $month, $locations, Carbon $now): void
+    {
+        foreach (InspectionTemplate::active()->with('items')->get() as $template) {
+            $count = (int) round($template->target_per_month * (mt_rand(65, 105) / 100));
+
+            for ($n = 0; $n < $count; $n++) {
+                $at = $month->copy()->addDays(mt_rand(0, $month->daysInMonth - 1))->setTime(mt_rand(6, 16), mt_rand(0, 59));
+                if ($at->gt($now)) {
+                    continue;
+                }
+
+                $inspector = $this->person();
+                $nokRate = mt_rand(2, 30) / 100;
+                $ok = $nok = $na = 0;
+                $rows = [];
+                foreach ($template->items as $item) {
+                    $roll = mt_rand(1, 100) / 100;
+                    $result = $roll < $nokRate ? 'nok' : ($roll > 0.95 ? 'na' : 'ok');
+                    ${$result}++;
+                    $rows[] = [$item, $result];
+                }
+
+                $checked = $ok + $nok;
+                $inspection = Inspection::create([
+                    'number' => Numbering::next('INS', Inspection::class, $at->year),
+                    'template_id' => $template->id, 'template_name' => $template->name, 'category' => $template->category,
+                    'location_id' => $locations->random()->id,
+                    'area_detail' => ['Workshop Bay 1', 'Area parkir unit', 'Gudang B3', 'Pit ramp', 'Mess & kantin', 'Stockpile'][mt_rand(0, 5)],
+                    'inspected_at' => $at,
+                    'inspector_nik' => $inspector['nik'], 'inspector_name' => $inspector['name'], 'inspector_department' => $inspector['department'],
+                    'inspector_email' => $inspector['email'], 'created_by_id' => 'demo',
+                    'total_items' => $template->items->count(), 'ok_count' => $ok, 'nok_count' => $nok, 'na_count' => $na,
+                    'score' => $checked ? round($ok * 100 / $checked, 1) : null,
+                    'notes' => mt_rand(0, 2) === 0 ? 'Secara umum baik, temuan sudah dibahas dengan pengawas area.' : null,
+                    'created_at' => $at, 'updated_at' => $at,
+                ]);
+
+                foreach ($rows as $pos => [$item, $result]) {
+                    $inspection->items()->create([
+                        'position' => $pos + 1, 'question' => $item->question, 'result' => $result,
+                        'note' => $result === 'nok' ? ['Belum sesuai standar, perlu perbaikan', 'Ditemukan kondisi rusak/tidak lengkap', 'Tidak dilakukan oleh pekerja saat inspeksi'][mt_rand(0, 2)] : null,
+                    ]);
+                }
+
+                ActivityLog::forceCreate(['loggable_type' => 'inspection', 'loggable_id' => $inspection->id, 'actor_id' => 'demo', 'actor_name' => $inspector['name'], 'event' => 'created', 'note' => "Inspeksi selesai: skor {$inspection->score}%, {$nok} temuan", 'created_at' => $at, 'updated_at' => $at]);
+            }
+        }
+    }
+
     private function person(): array
     {
         $name = self::NAMES[array_rand(self::NAMES)];
@@ -302,7 +355,7 @@ class DemoSeeder extends Seeder
     public static function wipe(): void
     {
         DB::transaction(function () {
-            foreach (['activity_logs', 'attachments', 'corrective_actions', 'incident_persons', 'incidents', 'hazards', 'man_hours', 'email_logs'] as $table) {
+            foreach (['inspection_items', 'inspections', 'activity_logs', 'attachments', 'corrective_actions', 'incident_persons', 'incidents', 'hazards', 'man_hours', 'email_logs'] as $table) {
                 DB::table($table)->delete();
             }
         });

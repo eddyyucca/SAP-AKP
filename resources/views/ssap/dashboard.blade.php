@@ -12,23 +12,13 @@
     $q = fn (array $extra = []) => array_filter(['year' => $year, 'location' => $locationId] + $extra);
 @endphp
 
-@section('content')
-{{-- Sapaan + aksi cepat --}}
-<div class="ssap-hero p-4 mb-3 shadow-sm">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 position-relative" style="z-index:1;">
-        <div>
-            <div class="small opacity-75">{{ now()->translatedFormat('l, d F Y') }} &middot; {{ $loc }} &middot; Tahun {{ $year }}</div>
-            <h2 class="h4 fw-bold mb-1 mt-1">Halo, {{ $portalUser->name }}</h2>
-            <div class="opacity-75 small">Ringkasan keselamatan kerja {{ config('ssap.company') }}.</div>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('ssap.incidents.create') }}" class="btn btn-light btn-sm"><i class="bi bi-exclamation-octagon me-1"></i>Lapor Insiden</a>
-            <a href="{{ route('ssap.hazards.create') }}" class="btn btn-light btn-sm"><i class="bi bi-cone-striped me-1"></i>Lapor Hazard</a>
-            <a href="{{ route('ssap.reports.monthly', ['month' => now()->format('Y-m')] + ($locationId ? ['location' => $locationId] : [])) }}" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Ringkasan Bulan Ini</a>
-        </div>
-    </div>
-</div>
+@push('topbar-actions')
+    <a href="{{ route('ssap.incidents.create') }}" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-2"><i class="bi bi-exclamation-octagon"></i><span class="d-none d-md-inline">Lapor Insiden</span></a>
+    <a href="{{ route('ssap.hazards.create') }}" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2"><i class="bi bi-cone-striped"></i><span class="d-none d-md-inline">Lapor Hazard</span></a>
+    <a href="{{ route('ssap.reports.monthly', ['month' => now()->format('Y-m')] + ($locationId ? ['location' => $locationId] : [])) }}" class="btn btn-outline-secondary btn-sm d-none d-lg-inline-flex align-items-center gap-2"><i class="bi bi-printer"></i>Ringkasan Bulan Ini</a>
+@endpush
 
+@section('content')
 {{-- Filter --}}
 <form method="GET" class="s-card p-3 mb-3 filter-bar">
     <div class="row g-2 align-items-end">

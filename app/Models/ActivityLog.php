@@ -18,6 +18,7 @@ class ActivityLog extends Model
         'action_updated' => ['Tindakan diperbarui', 'bi-hourglass-split', 'warning'],
         'action_verified' => ['Tindakan diverifikasi', 'bi-patch-check', 'success'],
         'attachment' => ['Lampiran ditambahkan', 'bi-paperclip', 'secondary'],
+        'lpi' => ['LPI kontraktor', 'bi-file-earmark-text', 'primary'],
         'closed' => ['Laporan ditutup', 'bi-check2-circle', 'success'],
         'cancelled' => ['Laporan dibatalkan', 'bi-x-circle', 'secondary'],
         'reopened' => ['Laporan dibuka kembali', 'bi-arrow-counterclockwise', 'warning'],

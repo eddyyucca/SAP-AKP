@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ManagesRecords;
+use App\Models\Contractor;
 use App\Models\Incident;
 use App\Models\Location;
 use App\Services\HrisEmployees;
@@ -86,6 +87,7 @@ class IncidentController extends Controller
                     'investigation_due' => now()->addDays($this->investigationDays($data['type']))->toDateString(),
                 ]);
                 $this->syncPersons($incident, $persons);
+                $this->syncLpi($incident);
 
                 return $incident;
             });
@@ -94,7 +96,11 @@ class IncidentController extends Controller
         $files = $this->storeAttachments($incident, 'incident', $request);
         $incident->log('created', 'Laporan dibuat'.($files ? " dengan {$files} lampiran" : ''));
 
-        $this->notifier->incidentReported($incident->fresh());
+        $fresh = $incident->fresh();
+        $this->notifier->incidentReported($fresh);
+        if ($fresh->lpi_status === 'pending') {
+            $this->notifier->lpiRequested($fresh);
+        }
 
         return redirect()->route('ssap.incidents.show', $incident)
             ->with('success', "Laporan {$incident->number} berhasil dikirim ke tim HSE.");
@@ -103,7 +109,7 @@ class IncidentController extends Controller
     public function show(Incident $incident)
     {
         $this->authorizeView($incident);
-        $incident->load(['location', 'persons', 'actions', 'attachments', 'logs']);
+        $incident->load(['location', 'contractor', 'persons', 'actions', 'attachments', 'logs']);
 
         return view('ssap.incidents.show', [
             'incident' => $incident,
@@ -140,6 +146,7 @@ class IncidentController extends Controller
         DB::transaction(function () use ($incident, $data, $persons) {
             $incident->update($this->attributes($data, $persons));
             $this->syncPersons($incident, $persons);
+            $this->syncLpi($incident);
         });
 
         $files = $this->storeAttachments($incident, 'incident', $request);
@@ -324,6 +331,7 @@ class IncidentController extends Controller
         return [
             'incident' => $incident,
             'locations' => Location::active()->ordered()->get(['id', 'name']),
+            'contractors' => Contractor::query()->where(fn ($q) => $q->where('is_active', true)->orWhere('id', $incident->contractor_id))->ordered()->get(['id', 'name', 'area_type']),
             'me' => $me,
             'hrisReady' => HrisEmployees::configured(),
         ];
@@ -339,6 +347,7 @@ class IncidentController extends Controller
             'severity' => ['required', 'integer', 'between:1,5'],
             'occurred_at' => ['required', 'date', 'before_or_equal:now'],
             'location_id' => ['required', Rule::exists('locations', 'id')->where('is_active', true)],
+            'contractor_id' => ['nullable', Rule::exists('contractors', 'id')],
             'area_detail' => ['nullable', 'string', 'max:160'],
             'activity' => ['nullable', 'string', 'max:160'],
             'equipment' => ['nullable', 'string', 'max:160'],
@@ -382,6 +391,7 @@ class IncidentController extends Controller
             'severity' => (int) $data['severity'],
             'occurred_at' => $data['occurred_at'],
             'location_id' => $data['location_id'],
+            'contractor_id' => $data['contractor_id'] ?? null,
             'area_detail' => $this->clean($data['area_detail'] ?? null),
             'activity' => $this->clean($data['activity'] ?? null),
             'equipment' => $this->clean($data['equipment'] ?? null),
@@ -419,6 +429,30 @@ class IncidentController extends Controller
                 'treatment' => $this->clean($person['treatment'] ?? null),
                 'lost_days' => (int) ($person['lost_days'] ?? 0),
             ]);
+        }
+    }
+
+    /**
+     * LPI wajib bila insiden terjadi di area kontraktor (kecuali jenis yang dikecualikan). Tenggat mengikuti tenggat investigasi.
+     * LPI yang sudah diterima tidak diubah walau kontraktornya diganti.
+     */
+    private function syncLpi(Incident $incident): void
+    {
+        $required = $incident->contractor_id && Incident::lpiRequiredFor($incident->type);
+
+        if (! $required) {
+            if (in_array($incident->lpi_status, [null, 'pending'], true) && $incident->lpi_status !== null) {
+                $incident->forceFill(['lpi_status' => null, 'lpi_due' => null])->save();
+            }
+
+            return;
+        }
+
+        if ($incident->lpi_status === null) {
+            $incident->forceFill([
+                'lpi_status' => 'pending',
+                'lpi_due' => ($incident->created_at ?? now())->copy()->addDays($this->investigationDays($incident->type))->toDateString(),
+            ])->save();
         }
     }
 

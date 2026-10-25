@@ -133,4 +133,31 @@
             options: { scales: { x: axisX(), y: axisY() }, plugins: { legend: { display: false } } },
         });
     };
+
+    // Dashboard inspeksi rutin
+    window.SSAPInspectionCharts = function (c) {
+        const t = c.trend;
+
+        make('cvInsTrend', {
+            type: 'bar',
+            data: { labels: t.labels, datasets: [
+                { type: 'bar', label: 'Inspeksi terlaksana', data: t.count, backgroundColor: BRAND, borderRadius: 3, maxBarThickness: 30, yAxisID: 'y' },
+                { type: 'line', label: 'Target', data: t.target, borderColor: '#94a3b8', borderDash: [6, 4], pointRadius: 0, yAxisID: 'y' },
+                { type: 'line', label: 'Skor rata-rata (%)', data: t.score, borderColor: '#16a34a', backgroundColor: '#16a34a', tension: .3, pointRadius: 3, spanGaps: true, yAxisID: 'y1' },
+            ] },
+            options: {
+                scales: { x: axisX(), y: axisY(), y1: { position: 'right', min: 0, max: 100, grid: { display: false }, border: { display: false }, ticks: { callback: (v) => v + '%' } } },
+                plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } },
+            },
+        });
+
+        make('cvInsLocation', {
+            type: 'bar',
+            data: { labels: c.location.labels, datasets: [{ label: 'Inspeksi', data: c.location.count, backgroundColor: ACCENT, borderRadius: 4, maxBarThickness: 22 }] },
+            options: {
+                indexAxis: 'y', scales: { x: axisY(), y: axisX({ ticks: { autoSkip: false } }) },
+                plugins: { legend: { display: false }, tooltip: { callbacks: { afterLabel: (i) => { const sc = c.location.score[i.dataIndex]; return sc === null ? '' : 'Skor rata-rata: ' + fmt(sc) + '%'; } } } },
+            },
+        });
+    };
 })();

@@ -55,7 +55,12 @@ $text = @(
   "SSAP_PORT=$Port",
   "DB_HOST_PORT=$DbHostPort",
   "SSAP_TAG=$Tag",
-  "SESSION_SECURE_COOKIE=true"
+  "SESSION_SECURE_COOKIE=true",
+  "HRIS_API_URL=https://hris.$Domain",
+  "HRIS_API_TOKEN=$($prev['HRIS_API_TOKEN'])",
+  "MAILSVC_URL=https://mail.$Domain",
+  "MAILSVC_TOKEN=$($prev['MAILSVC_TOKEN'])",
+  "SSAP_NOTIFY_HSE=$($prev['SSAP_NOTIFY_HSE'])"
 ) -join "`r`n"
 $text += "`r`n"
 [IO.File]::WriteAllText($OutFile, $text, (New-Object Text.UTF8Encoding $false))
