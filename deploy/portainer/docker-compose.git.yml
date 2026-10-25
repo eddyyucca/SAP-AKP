@@ -1,0 +1,68 @@
+# Stack Portainer SSAP Safety untuk metode "Repository" (Git). TANPA rahasia: nilai ${...} diisi di Portainer > Environment variables.
+# Buat isiannya dengan: powershell -ExecutionPolicy Bypass -File deploy\portainer\buat-isian-ssap.ps1
+# Yang WAJIB diisi 3: DB_PASSWORD, APP_KEY, PORTAL_SSO_SECRET (dari Portal > Modul > SSAP Safety > Integrasi).
+# Stack ini BARU dan terpisah dari stack lain di server (nama stack, volume, dan port berbeda).
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-3314}:3306"      # untuk DBeaver lewat SSH tunnel (hanya localhost server)
+    environment:
+      MARIADB_DATABASE: akp_ssap_safety
+      MARIADB_USER: ssap
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-${DB_PASSWORD}}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  ssap:
+    image: ghcr.io/eddyyucca/akp-ssap-safety:${SSAP_TAG:-latest}
+    pull_policy: always                 # selalu tarik image terbaru dari ghcr (Re-pull image di Portainer CE tidak tersedia)
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${SSAP_PORT:-8112}:80"
+    environment:
+      APP_NAME: "SSAP Safety"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${SSAP_URL:-https://ssap.lameruru.web.id}
+      APP_TIMEZONE: Asia/Makassar
+      APP_LOCALE: id
+      APP_FALLBACK_LOCALE: id
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: warning
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: akp_ssap_safety
+      DB_USERNAME: ssap
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_DRIVER: file
+      SESSION_COOKIE: akp_ssap_safety_session
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+      PORTAL_URL: ${PORTAL_URL:-https://portal.lameruru.web.id}
+      PORTAL_APP_CODE: ${PORTAL_APP_CODE:-ssap-safety}   # harus sama dengan KODE modul di Portal
+      PORTAL_SSO_SECRET: ${PORTAL_SSO_SECRET}
+      AUTO_MIGRATE: "true"
+    volumes:
+      - ssap_storage:/var/www/html/storage
+
+volumes:
+  dbdata:
+    name: akp_ssap_safety_dbdata
+  ssap_storage:
+    name: akp_ssap_safety_storage

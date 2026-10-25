@@ -1,0 +1,88 @@
+# CI/CD aplikasi ini (mandiri: hanya memakai isi repositori ini).
+# Setiap push ke main: (1) GitHub membangun image dan mengunggahnya ke ghcr.io, (2) runner di server memanggil webhook
+# Portainer supaya stack menarik image baru dan restart.
+#
+# Rahasia yang dibutuhkan (Settings > Secrets and variables > Actions):
+#   GHCR_TOKEN              token classic dengan izin write:packages
+#   PORTAINER_WEBHOOK_URL   alamat webhook stack di Portainer (pakai localhost, karena runner berada di server yang sama)
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # tombol "Run workflow" manual di tab Actions
+  schedule:
+    - cron: '0 20 * * 0'   # tiap Minggu 20:00 UTC (Senin 04:00 WITA): bangun ulang agar PHP terbaru ikut
+
+env:
+  IMAGE: akp-ssap-safety
+  PHP_MIN: "8.3.36"   # versi PHP minimum yang sudah ditambal (PHP2Shell); naikkan bila ada tambalan baru
+
+jobs:
+  # Tes otomatis wajib lulus sebelum image dibuat dan dipasang (standar aplikasi baru AKPSatu, bagian 12).
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite, gd, zip
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan test
+
+  image:
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - name: Pastikan PHP dasar sudah versi aman (celah PHP2Shell)
+        run: |
+          docker pull php:8.3-apache
+          docker run --rm -e PHP_MIN php:8.3-apache php -r 'echo PHP_VERSION, PHP_EOL; exit(version_compare(PHP_VERSION, getenv("PHP_MIN"), ">=") ? 0 : 1);'
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          pull: true                # selalu ambil image dasar PHP terbaru
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Berjalan di SERVER Windows (self-hosted runner; hanya koneksi KELUAR ke GitHub, tidak ada port yang dibuka).
+  # Memanggil webhook stack Portainer di localhost: Portainer menarik image "latest" yang baru dan me-restart stack.
+  deploy:
+    needs: image
+    runs-on: [self-hosted, windows, akp-server]
+    steps:
+      - name: Perbarui stack di Portainer
+        shell: cmd
+        env:
+          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: |
+          rem Portainer memakai sertifikat milik sendiri (https://localhost:9443): -k hanya untuk panggilan lokal ini.
+          rem -f membuat langkah ini GAGAL bila Portainer membalas error (HTTP 4xx/5xx).
+          curl.exe -k -sS -f --max-time 120 -X POST "%WEBHOOK%"
