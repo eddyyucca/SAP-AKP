@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard')
-@section('page-title', 'Dashboard SSAP Safety')
+@section('page-title', 'Dashboard SAP Safety')
 @section('breadcrumb')
     <li class="breadcrumb-item active">Dashboard</li>
 @endsection

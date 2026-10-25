@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ActivityLog;
 use App\Models\CorrectiveAction;
 use App\Models\Hazard;
+use App\Models\Contractor;
 use App\Models\Incident;
 use App\Models\Inspection;
 use App\Models\InspectionTemplate;
@@ -46,17 +47,19 @@ class DemoSeeder extends Seeder
         'restricted_work' => [
             ['Cedera punggung saat mengangkat beban', 'Pekerja mengangkat komponen tanpa alat bantu; dokter menyarankan pembatasan angkat beban.'],
         ],
-        'lost_time' => [
+        'serious_injury' => [
             ['Patah tulang jari akibat terjepit di conveyor', 'Pekerja membersihkan area conveyor yang belum di-lockout; jari terjepit dan perlu rawat inap.'],
             ['Terjatuh dari tangga workshop', 'Pekerja terjatuh dari tangga setinggi 2 meter, mengalami cedera bahu dan istirahat medis.'],
         ],
-        'property_damage' => [
-            ['Kerusakan kaca spion unit saat manuver', 'Unit menyenggol tiang rambu saat memutar di area sempit.'],
-            ['Forklift menabrak rak penyimpanan', 'Forklift membentur rak material saat mundur, rak penyok.'],
+        'minor_injury' => [
+            ['Terpeleset di wash bay, istirahat 2 hari', 'Pekerja terpeleset di lantai licin dan keseleo; dokter menyarankan istirahat 2 hari.'],
+            ['Tangan tergores besi, tidak masuk kerja 3 hari', 'Luka sayat di telapak tangan perlu dijahit dan pekerja tidak dapat bekerja beberapa hari.'],
         ],
-        'vehicle' => [
+        'property_damage' => [
             ['Dump truck selip di jalan hauling basah', 'Unit selip akibat jalan licin setelah hujan dan menabrak tanggul pengaman.'],
             ['Tabrakan ringan antar light vehicle', 'Dua unit light vehicle bersenggolan di persimpangan tanpa rambu jelas.'],
+            ['Kerusakan kaca spion unit saat manuver', 'Unit menyenggol tiang rambu saat memutar di area sempit.'],
+            ['Forklift menabrak rak penyimpanan', 'Forklift membentur rak material saat mundur, rak penyok.'],
         ],
         'fire' => [
             ['Percikan api pada kabel baterai unit', 'Terjadi korsleting kabel baterai dan api kecil dipadamkan dengan APAR.'],
@@ -101,6 +104,8 @@ class DemoSeeder extends Seeder
             }
         }
 
+        $this->contractors();
+
         for ($m = $start->copy(); $m->lte($now); $m->addMonth()) {
             $this->incidentsFor($m->copy(), $locations, $now);
             $this->hazardsFor($m->copy(), $locations, $now);
@@ -121,7 +126,7 @@ class DemoSeeder extends Seeder
 
     private function incidentsFor(Carbon $month, $locations, Carbon $now): void
     {
-        $plan = ['near_miss' => mt_rand(6, 13), 'first_aid' => mt_rand(2, 5), 'medical_treatment' => mt_rand(0, 2), 'restricted_work' => mt_rand(0, 1), 'lost_time' => mt_rand(0, 4) === 0 ? 1 : 0, 'property_damage' => mt_rand(1, 3), 'vehicle' => mt_rand(0, 2), 'fire' => mt_rand(0, 6) === 0 ? 1 : 0, 'environmental' => mt_rand(0, 1)];
+        $plan = ['near_miss' => mt_rand(6, 13), 'first_aid' => mt_rand(2, 5), 'medical_treatment' => mt_rand(0, 2), 'restricted_work' => mt_rand(0, 1), 'serious_injury' => mt_rand(0, 5) === 0 ? 1 : 0, 'minor_injury' => mt_rand(0, 2) === 0 ? 1 : 0, 'property_damage' => mt_rand(2, 5), 'fire' => mt_rand(0, 6) === 0 ? 1 : 0, 'environmental' => mt_rand(0, 1)];
         $types = config('ssap.incident_types');
 
         foreach ($plan as $type => $count) {
@@ -149,7 +154,7 @@ class DemoSeeder extends Seeder
                     default => 'submitted',
                 };
 
-                $lostDays = $type === 'lost_time' ? mt_rand(3, 21) : ($type === 'restricted_work' ? mt_rand(0, 3) : 0);
+                $lostDays = $type === 'serious_injury' ? mt_rand(22, 60) : ($type === 'minor_injury' ? mt_rand(2, 14) : ($type === 'restricted_work' ? mt_rand(0, 3) : 0));
                 $likelihood = $meta['default_severity'] >= 3 ? mt_rand(2, 4) : mt_rand(1, 3);
                 $consequence = min(5, $meta['default_severity'] + mt_rand(0, 1));
                 $score = Risk::score($likelihood, $consequence);
@@ -172,9 +177,9 @@ class DemoSeeder extends Seeder
                     'status' => $status,
                     'injured_count' => $meta['injury'] ? 1 : 0,
                     'lost_days' => $lostDays,
-                    'cost_estimate' => in_array($type, ['property_damage', 'vehicle', 'fire'], true) ? mt_rand(2, 80) * 1_000_000 : null,
+                    'cost_estimate' => in_array($type, ['property_damage', 'fire'], true) ? mt_rand(2, 80) * 1_000_000 : null,
                     'investigator_nik' => $investigator['nik'] ?? null, 'investigator_name' => $investigator['name'] ?? null, 'investigator_email' => $investigator['email'] ?? null,
-                    'investigation_due' => $createdAt->copy()->addDays($type === 'lost_time' ? 5 : 7)->toDateString(),
+                    'investigation_due' => $createdAt->copy()->addDays($type === 'serious_injury' ? 5 : 7)->toDateString(),
                     'investigation_started_at' => $investigator ? $createdAt->copy()->addDay() : null,
                     'immediate_cause' => $investigator ? 'Tindakan tidak aman dan kondisi area kerja yang kurang terkendali.' : null,
                     'root_cause_category' => in_array($status, ['follow_up', 'closed'], true) ? array_rand(config('ssap.root_cause_categories')) : null,
@@ -185,6 +190,8 @@ class DemoSeeder extends Seeder
                     'closure_note' => $status === 'closed' ? 'Seluruh tindakan korektif telah selesai dan diverifikasi.' : null,
                     'created_at' => $createdAt, 'updated_at' => $createdAt,
                 ]);
+
+                $this->applyContractor($incident, $type, $createdAt, $now);
 
                 if ($meta['injury']) {
                     $victim = $this->person();
@@ -286,6 +293,70 @@ class DemoSeeder extends Seeder
             'created_by' => 'Petugas HSE (demo)',
             'created_at' => $createdAt, 'updated_at' => $createdAt,
         ]);
+    }
+
+    private function contractors()
+    {
+        if (Contractor::count() === 0) {
+            foreach ([
+                ['PT Karya Tambang Nusantara (demo)', 'iujp', 'IUJP-DEMO-001'], ['PT Mitra Hauling Sejahtera (demo)', 'iujp', 'IUJP-DEMO-002'], ['PT Bumi Konstruksi Mandiri (demo)', 'iujp', 'IUJP-DEMO-003'],
+                ['PT Sinar Energi Mineral (demo)', 'iup', 'IUP-DEMO-001'], ['PT Persada Batu Bara (demo)', 'iup', 'IUP-DEMO-002'], ['CV Andalan Logistik Tambang (demo)', 'iujp', 'IUJP-DEMO-004'],
+            ] as $i => [$name, $area, $permit]) {
+                Contractor::create(['name' => $name, 'area_type' => $area, 'permit_no' => $permit, 'pic_name' => 'PIC HSE '.($i + 1), 'pic_email' => 'hse'.($i + 1).'@kontraktor-demo.invalid', 'is_active' => true]);
+            }
+        }
+    }
+
+    /** Sekitar 45% insiden terjadi di area kontraktor; LPI-nya diterima tepat/terlambat, disetujui, direvisi, atau belum masuk. */
+    private function applyContractor(Incident $incident, string $type, Carbon $createdAt, Carbon $now): void
+    {
+        if (mt_rand(1, 100) > 45) {
+            return;
+        }
+
+        $contractor = Contractor::query()->inRandomOrder()->first();
+        $incident->forceFill(['contractor_id' => $contractor->id])->save();
+
+        if (! Incident::lpiRequiredFor($type)) {
+            return;
+        }
+
+        $days = config('ssap.investigation_days.'.$type, config('ssap.investigation_days.default'));
+        $due = $createdAt->copy()->addDays($days)->startOfDay();
+        $submitted = null;
+
+        // Kontraktor "bermasalah" lebih sering terlambat supaya dashboard punya variasi.
+        $late = $contractor->id % 3 === 0 ? 55 : 15;
+        if ($due->lt($now)) {
+            if (mt_rand(1, 100) <= 82) {
+                $submitted = $due->copy()->addDays(mt_rand(1, 100) <= $late ? mt_rand(1, 9) : -mt_rand(0, 4));
+            }
+        } elseif (mt_rand(1, 100) <= 35) {
+            $submitted = $createdAt->copy()->addDays(mt_rand(1, max(1, $days - 1)))->startOfDay();
+        }
+
+        if ($submitted && $submitted->gt($now)) {
+            $submitted = $now->copy()->startOfDay();
+        }
+
+        $status = 'pending';
+        $revisions = 0;
+        if ($submitted) {
+            $roll = mt_rand(1, 100);
+            $status = $roll <= 62 ? 'accepted' : ($roll <= 82 ? 'submitted' : 'revision');
+            $revisions = $status === 'accepted' ? mt_rand(0, 1) : 0;
+        }
+
+        $incident->forceFill([
+            'lpi_status' => $status,
+            'lpi_due' => $due->toDateString(),
+            'lpi_number' => $submitted ? 'LPI/'.$contractor->id.'/'.$incident->number : null,
+            'lpi_submitted_at' => $submitted?->toDateString(),
+            'lpi_revisions' => $revisions,
+            'lpi_reviewed_at' => in_array($status, ['accepted', 'revision'], true) ? $submitted->copy()->addDays(2) : null,
+            'lpi_reviewed_by' => in_array($status, ['accepted', 'revision'], true) ? 'Petugas HSE (demo)' : null,
+            'lpi_note' => $status === 'revision' ? 'Analisis akar masalah belum lengkap, mohon lengkapi 5-Why dan bukti foto.' : null,
+        ])->save();
     }
 
     /** Inspeksi rutin: sekitar 70-100% dari target tiap template, dengan skor dan temuan acak. */

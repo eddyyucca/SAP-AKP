@@ -9,7 +9,7 @@ use App\Models\Setting;
 use App\Support\Risk;
 
 /**
- * Notifikasi email SSAP Safety lewat AKP Mail. Setiap metode aman dipanggil di alur bisnis:
+ * Notifikasi email SAP Safety lewat AKP Mail. Setiap metode aman dipanggil di alur bisnis:
  * galat apa pun ditelan dan dilaporkan ke log, tidak pernah menggagalkan penyimpanan laporan.
  */
 class Notifier
@@ -182,7 +182,7 @@ class Notifier
                 [$action->pic_email],
                 'Tindakan safety untuk Anda: '.$this->sourceNumber($action),
                 'Tindakan safety ditugaskan',
-                'Anda ditugaskan mengerjakan tindakan berikut. Mohon perbarui statusnya di SSAP Safety saat dikerjakan dan selesai.',
+                'Anda ditugaskan mengerjakan tindakan berikut. Mohon perbarui statusnya di SAP Safety saat dikerjakan dan selesai.',
                 $this->actionRows($action),
                 route('ssap.actions.index', ['view' => 'mine']),
                 '#ea580c',
@@ -322,8 +322,8 @@ class Notifier
         $this->safely(function () use ($stats) {
             $this->deliver(
                 Setting::emails('notify_hse'),
-                'Ringkasan harian SSAP Safety - '.now()->translatedFormat('d F Y'),
-                'Ringkasan harian SSAP Safety',
+                'Ringkasan harian SAP Safety - '.now()->translatedFormat('d F Y'),
+                'Ringkasan harian SAP Safety',
                 'Berikut hal-hal yang memerlukan perhatian HSE hari ini.',
                 $stats,
                 route('ssap.home'),

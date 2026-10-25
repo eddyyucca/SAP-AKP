@@ -1,5 +1,5 @@
 /* ============================================================
-   SSAP Safety: komponen khusus modul (di atas tema HRIS di app.css)
+   SAP Safety: komponen khusus modul (di atas tema HRIS di app.css)
    ============================================================ */
 :root {
     --risk-low: #16a34a; --risk-low-bg: #dcfce7;
@@ -130,3 +130,68 @@ a.kpi:hover { box-shadow: var(--shadow-soft); transform: translateY(-1px); color
     body { background: #fff !important; }
     .s-card, .kpi { box-shadow: none !important; break-inside: avoid; }
 }
+
+/* ============================================================
+   Perbaikan batas ukuran / overflow
+   ============================================================ */
+.content-shell { max-width: 100%; overflow-x: clip; }
+.content-shell .row > * { min-width: 0; }
+.s-card, .kpi, .quick-btn { min-width: 0; max-width: 100%; }
+.s-card-title { min-width: 0; flex-wrap: wrap; }
+.s-card-head > * { min-width: 0; }
+.s-card-sub { overflow-wrap: anywhere; }
+.def-list dd, .def-list dt { overflow-wrap: anywhere; min-width: 0; }
+.alert { overflow-wrap: anywhere; }
+
+/* Sel teks panjang dipatahkan, bukan melebarkan halaman; kolom angka/tanggal tetap satu baris */
+.table-ssap td { overflow-wrap: anywhere; word-break: normal; max-width: 460px; }
+.table-ssap td.text-nowrap, .table-ssap td.num { max-width: none; overflow-wrap: normal; }
+.table-responsive { max-width: 100%; -webkit-overflow-scrolling: touch; }
+.table-ssap.sticky-first th:first-child, .table-ssap.sticky-first td:first-child { position: sticky; left: 0; z-index: 2; background: #fff; box-shadow: 1px 0 0 var(--line); }
+.table-ssap.sticky-first thead th:first-child { background: #fff; }
+
+.pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pagination { flex-wrap: wrap; gap: .15rem; margin-bottom: 0; }
+
+/* Angka KPI besar tidak boleh keluar kartu */
+.kpi-num { font-size: clamp(1.4rem, 1rem + 1.2vw, 1.85rem); overflow-wrap: normal; white-space: nowrap; }
+.kpi-num.kpi-long, .kpi-num-long { font-size: clamp(1.15rem, .8rem + .9vw, 1.5rem); }
+.kpi-name { overflow-wrap: break-word; hyphens: auto; }
+.lti-num { font-size: clamp(2rem, 1.5rem + 2vw, 2.6rem); }
+.lti-banner > * { min-width: 0; }
+
+/* Grafik */
+.chart-box canvas { max-width: 100%; }
+@media (max-width: 575.98px) {
+    .chart-box { height: 240px; }
+    .chart-box.tall { height: 300px; }
+    .chart-box.short { height: 200px; }
+    .ssap-hero { padding: 1rem !important; }
+    .ssap-hero .btn { flex: 1 1 100%; }
+    .content-shell { padding: .85rem; }
+    .risk-picker { grid-template-columns: 34px repeat(5, 1fr); font-size: .66rem; }
+    .risk-picker .axis span { display: none; }
+    .heat { grid-template-columns: 20px repeat(5, 1fr); gap: 3px; }
+    .step { flex-basis: 70px; font-size: .68rem; }
+    .stepper { gap: 0; }
+    .emp-results { position: fixed; left: 12px; right: 12px; top: auto; max-height: 50vh; }
+}
+
+/* Dropdown pencarian karyawan tidak terpotong oleh kartu/kolom di sekitarnya */
+.person-row, .s-card-body { overflow: visible; }
+.collapse.show, .collapsing { overflow: visible; }
+
+/* Menu samping: label panjang dipotong, bukan melebar */
+.sidebar-link-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Judul halaman panjang dipotong di bilah atas */
+.topbar .page-title { max-width: 100%; }
+.filter-bar .form-control, .filter-bar .form-select { min-width: 0; }
+@media print { .content-shell { overflow: visible; } }
+
+@media (max-width: 767.98px) {
+    .table-responsive > .table-ssap { min-width: 640px; }
+    .table-responsive > .table-ssap.sticky-first { min-width: 760px; }
+}
+.table-ssap.sticky-first th:first-child, .table-ssap.sticky-first td:first-child { min-width: 170px; }
+@media (min-width: 992px) { .table-ssap.sticky-first td:first-child { min-width: 210px; } }

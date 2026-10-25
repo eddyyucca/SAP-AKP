@@ -88,7 +88,7 @@ class LpiStats
                 'area' => $c?->areaMeta()['label'] ?? '-',
                 'area_color' => $c?->areaMeta()['color'] ?? '#64748b',
                 'incidents' => $rows->count(),
-                'lti' => $rows->whereIn('type', ['lost_time', 'fatality'])->count(),
+                'lti' => $rows->filter(fn ($i) => config('ssap.incident_types.'.$i->type.'.lti'))->count(),
                 'required' => $req->count(),
                 'received' => $received->count(),
                 'accepted' => $req->where('lpi_status', 'accepted')->count(),

@@ -19,7 +19,7 @@
         <div class="col-6 col-md-4 col-xl-2">
             <select name="type" class="form-select form-select-sm">
                 <option value="">Semua jenis</option>
-                @foreach (config('ssap.incident_types') as $k => $t)<option value="{{ $k }}" @selected(($filters['type'] ?? '') === $k)>{{ $t['short'] }}</option>@endforeach
+                @foreach (config('ssap.incident_types') as $k => $t)<option value="{{ $k }}" @selected(($filters['type'] ?? '') === $k)>{{ $t['label'] }}</option>@endforeach
             </select>
         </div>
         <div class="col-6 col-md-4 col-xl-2">

@@ -26,7 +26,7 @@ return [
     'except' => ['up'],
 
     'roles' => [
-        'admin' => ['Administrator', 'Mengelola semua data, lokasi, jam kerja, dan pengaturan SSAP Safety.'],
+        'admin' => ['Administrator', 'Mengelola semua data, lokasi, jam kerja, dan pengaturan SAP Safety.'],
         'hse' => ['Petugas HSE', 'Menerima, menginvestigasi, dan menutup laporan; menetapkan tindakan korektif dan memverifikasinya.'],
         'manager' => ['Manajer', 'Melihat dashboard, laporan, dan seluruh data safety (tanpa mengubah).'],
         'user' => ['Pelapor', 'Membuat laporan insiden dan hazard, serta mengerjakan tindakan yang ditugaskan kepadanya.'],

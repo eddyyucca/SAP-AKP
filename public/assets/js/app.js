@@ -9,11 +9,13 @@
 
     const overlay = () => document.getElementById('pageLoading');
 
-    function show() {
+    function show(message) {
         clearTimeout(showTimer);
         showTimer = setTimeout(function () {
             const el = overlay();
             if (!el) return;
+            const text = document.getElementById('pageLoadingText');
+            if (text) text.textContent = message || 'Memuat data...';
             el.classList.add('is-visible');
             el.setAttribute('aria-hidden', 'false');
             giveUpTimer = setTimeout(hide, GIVE_UP_AFTER);
@@ -39,7 +41,7 @@
         if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
 
         const url = new URL(link.href, location.href);
-        if (url.origin !== location.origin || /\/(unduh|export|download)(\/|$|\?)/.test(url.pathname)) return;
+        if (url.origin !== location.origin || /\/(unduh|export|download|ekspor|cetak)(\/|$|\?)/.test(url.pathname)) return;
         if (url.pathname === location.pathname && url.search === location.search && url.hash) return;      // loncat ke anchor di halaman yang sama
 
         show();
@@ -50,7 +52,8 @@
         // Listener lain (konfirmasi, AJAX) bisa membatalkan pengiriman; periksa setelah semuanya selesai.
         setTimeout(function () {
             if (e.defaultPrevented || form.target === '_blank' || form.hasAttribute('data-no-loading')) return;
-            show();
+            const uploading = Array.prototype.some.call(form.querySelectorAll('input[type=file]'), (f) => f.files && f.files.length);
+            show(uploading ? 'Mengunggah berkas...' : (form.method && form.method.toLowerCase() === 'get' ? 'Memuat data...' : 'Menyimpan...'));
         }, 0);
     });
 

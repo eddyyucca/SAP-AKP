@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 
 /**
  * Pembaca data karyawan HRIS (API baca-saja, STANDAR-APLIKASI bagian "Data karyawan").
- * SSAP Safety tidak menyimpan tabel karyawan: daftar diambil dari HRIS lalu disimpan sementara di cache.
+ * SAP Safety tidak menyimpan tabel karyawan: daftar diambil dari HRIS lalu disimpan sementara di cache.
  * Bila HRIS tidak dapat dihubungi, aplikasi memakai salinan cache terakhir; bila tidak ada, formulir diisi manual.
  */
 class HrisEmployees
@@ -127,7 +127,7 @@ class HrisEmployees
         return array_map(fn ($f) => $f[2], array_slice($found, 0, $limit));
     }
 
-    /** Hanya bidang yang dibutuhkan SSAP Safety (tanpa data sensitif). */
+    /** Hanya bidang yang dibutuhkan SAP Safety (tanpa data sensitif). */
     private function present(array $row): array
     {
         return [

@@ -86,7 +86,7 @@
             <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-box-arrow-in-right"></i>Portal AKPSatu</h3></div>
             <div class="s-card-body small">
                 <p class="mb-1">Login &amp; level akses dikelola di Portal: <a href="{{ $portalUrl }}" target="_blank" rel="noopener">{{ $portalUrl }}</a></p>
-                <p class="mb-0 text-muted">Level SSAP Safety: Administrator, Petugas HSE, Manajer, Pelapor. Beri akses di Portal &gt; Pengguna &amp; Akses.</p>
+                <p class="mb-0 text-muted">Level SAP Safety: Administrator, Petugas HSE, Manajer, Pelapor. Beri akses di Portal &gt; Pengguna &amp; Akses.</p>
             </div>
         </div>
     </div>

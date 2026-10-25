@@ -1,4 +1,4 @@
-/* SSAP Safety: grafik Chart.js untuk dashboard, laporan, dan ringkasan bulanan.
+/* SAP Safety: grafik Chart.js untuk dashboard, laporan, dan ringkasan bulanan.
    Data datang dari server (SafetyStats::charts) sebagai JSON; setiap grafik hanya dibuat bila kanvasnya ada di halaman. */
 (function () {
     'use strict';
@@ -43,9 +43,31 @@
     const axisY = (extra) => Object.assign({ beginAtZero: true, grid: { color: GRID }, border: { display: false }, ticks: { precision: 0 } }, extra || {});
     const axisX = (extra) => Object.assign({ grid: { display: false }, border: { color: GRID } }, extra || {});
 
+    const short = (t, n) => { t = String(t); return t.length > (n || 24) ? t.slice(0, (n || 24) - 1) + '…' : t; };
+    const narrow = () => window.innerWidth < 576;
+
+    // Grafik batang horizontal: tinggi mengikuti jumlah label supaya tidak berdesakan, label panjang dipotong.
     function make(id, config) {
         const canvas = el(id);
         if (!canvas) return null;
+
+        if (config.options && config.options.indexAxis === 'y') {
+            const n = (config.data.labels || []).length;
+            const box = canvas.parentElement;
+            if (box && n > 7) box.style.height = Math.min(640, 70 + n * 30) + 'px';
+            const y = config.options.scales && config.options.scales.y;
+            if (y) {
+                y.ticks = Object.assign({}, y.ticks, { autoSkip: false, callback(v) { return short(this.getLabelForValue(v), Math.max(9, Math.floor(canvas.clientWidth * 0.34 / 6.4))); } });
+            }
+            config.options.plugins = config.options.plugins || {};
+            config.options.plugins.tooltip = Object.assign({ callbacks: {} }, config.options.plugins.tooltip);
+            config.options.plugins.tooltip.callbacks.title = (items) => items.length ? String(items[0].label) : '';
+        }
+
+        if (config.type === 'doughnut' && config.options && config.options.plugins && config.options.plugins.legend && narrow()) {
+            config.options.plugins.legend.position = 'bottom';
+        }
+
         return new Chart(canvas, config);
     }
 
@@ -160,4 +182,34 @@
             },
         });
     };
+
+    // Monitoring LPI kontraktor
+    window.SSAPLpiCharts = function (c) {
+        make('cvLpiContractor', {
+            type: 'bar',
+            data: { labels: c.contractor.labels, datasets: c.contractor.series.map((x) => ({ label: x.label, data: x.data, backgroundColor: x.color, borderRadius: 3, maxBarThickness: 26 })) },
+            options: { indexAxis: 'y', scales: { x: axisY({ stacked: true }), y: axisX({ stacked: true, ticks: { autoSkip: false } }) }, plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } } },
+        });
+
+        make('cvLpiStatus', {
+            type: 'doughnut',
+            data: { labels: c.status.labels, datasets: [{ data: c.status.data, backgroundColor: c.status.colors, borderWidth: 2, borderColor: '#fff' }] },
+            options: { cutout: '62%', plugins: { legend: { position: 'bottom' } } },
+        });
+    };
+
+    ['SSAPCharts', 'SSAPInspectionCharts', 'SSAPLpiCharts'].forEach(function (name) {
+        const fn = window[name];
+        window[name] = function (data) {
+            const go = () => fn(data);
+            if (document.fonts && document.fonts.ready) {
+                let done = false;
+                const once = () => { if (!done) { done = true; go(); } };
+                document.fonts.ready.then(once);
+                setTimeout(once, 1500);   // jangan menunggu font selamanya
+            } else {
+                go();
+            }
+        };
+    });
 })();

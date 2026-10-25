@@ -71,6 +71,7 @@
                     <dt>Kronologi</dt><dd style="white-space:pre-line;">{{ $incident->description }}</dd>
                     @if ($incident->immediate_action)<dt>Tindakan segera</dt><dd style="white-space:pre-line;">{{ $incident->immediate_action }}</dd>@endif
                     <dt>Lokasi</dt><dd>{{ $incident->location?->name }}@if ($incident->area_detail) &middot; {{ $incident->area_detail }}@endif</dd>
+                    @if ($incident->contractor)<dt>Kontraktor</dt><dd>{{ $incident->contractor->name }} <span class="pill pill-primary ms-1">{{ $incident->contractor->areaMeta()['label'] }}</span></dd>@endif
                     @if ($incident->activity)<dt>Aktivitas</dt><dd>{{ $incident->activity }}</dd>@endif
                     @if ($incident->equipment)<dt>Unit / peralatan</dt><dd>{{ $incident->equipment }}</dd>@endif
                     <dt>Korban</dt><dd>{{ $incident->injured_count }} orang &middot; {{ $incident->lost_days }} hari kerja hilang</dd>
@@ -103,6 +104,10 @@
         @endif
 
         @include('ssap._attachments', ['record' => $incident, 'canManage' => $canManage])
+
+        @if ($incident->lpi_status)
+            @include('ssap.incidents._lpi', ['incident' => $incident, 'canManage' => $canManage])
+        @endif
 
         {{-- Investigasi --}}
         <div class="s-card mb-3" id="investigasi">

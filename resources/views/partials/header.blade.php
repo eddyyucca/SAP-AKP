@@ -25,7 +25,7 @@
                         </ol>
                     </nav>
                     <h1 class="page-title mb-0 text-truncate">
-                        @yield('page-title', 'SSAP Safety')
+                        @yield('page-title', 'SAP Safety')
                     </h1>
                 </div>
             </div>

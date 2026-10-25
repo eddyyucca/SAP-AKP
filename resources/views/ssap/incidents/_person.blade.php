@@ -1,13 +1,13 @@
 @php($p = $p ?? [])
 <div class="person-row mb-2" data-emp-scope>
-    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-        <div class="d-flex align-items-center gap-2" style="min-width:0;">
+    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div class="d-flex flex-wrap align-items-center gap-2" style="min-width:0;flex:1;">
             <select name="persons[{{ $i }}][role]" class="form-select form-select-sm" style="width:auto;" data-role>
                 @foreach (config('ssap.person_roles') as $k => $label)
                     <option value="{{ $k }}" @selected(($p['role'] ?? 'korban') === $k)>{{ $label }}</option>
                 @endforeach
             </select>
-            <div style="min-width:200px;flex:1;"><x-employee-search placeholder="Cari karyawan HRIS (opsional)" /></div>
+            <div style="min-width:min(100%,200px);flex:1;"><x-employee-search placeholder="Cari karyawan HRIS (opsional)" /></div>
         </div>
         <button type="button" class="btn btn-sm btn-outline-danger" data-remove-person title="Hapus baris"><i class="bi bi-trash"></i></button>
     </div>

@@ -1,4 +1,4 @@
-/* SSAP Safety: perilaku halaman (pilih karyawan HRIS, baris orang, matriks risiko, dsb). Tanpa pustaka tambahan selain jQuery/Bootstrap. */
+/* SAP Safety: perilaku halaman (pilih karyawan HRIS, baris orang, matriks risiko, dsb). Tanpa pustaka tambahan selain jQuery/Bootstrap. */
 (function () {
     'use strict';
 
@@ -38,6 +38,9 @@
         const search = debounce(function () {
             const q = input.value.trim();
             if (q.length < 2) { hide(); return; }
+
+            results.classList.remove('d-none');
+            results.innerHTML = '<div class="emp-empty"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Mencari di HRIS...</div>';
 
             fetch(cfg.employeeUrl + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
                 .then((r) => r.ok ? r.json() : Promise.reject(r.status))
@@ -208,7 +211,12 @@
             if (e.defaultPrevented) return;
             const form = e.target;
             if (form.dataset.noLock) return;
-            form.querySelectorAll('button[type="submit"]').forEach(function (b) { setTimeout(() => { b.disabled = true; }, 0); });
+            form.querySelectorAll('button[type="submit"]').forEach(function (b) { setTimeout(() => { b.disabled = true; b.dataset.locked = '1'; }, 0); });
+        });
+
+        // Kembali dari cache browser: tombol yang dikunci saat kirim harus aktif lagi.
+        window.addEventListener('pageshow', function () {
+            document.querySelectorAll('button[data-locked]').forEach(function (b) { b.disabled = false; delete b.dataset.locked; });
         });
 
         // Tombol cetak

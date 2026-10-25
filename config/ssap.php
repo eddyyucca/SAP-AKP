@@ -8,6 +8,10 @@
 return [
     'company' => 'PT Adhi Kartiko Pratama Tbk',
 
+    // Nama resmi aplikasi (kode modul tetap ssap-safety).
+    'app_full_name' => 'Safety Accountability Program',
+    'app_short_name' => 'SAP',
+
     // Pengali laju kecelakaan: LTIFR = kasus LTI x 1.000.000 / jam kerja.
     'rate_base' => 1_000_000,
 
@@ -16,16 +20,30 @@ return [
      * recordable = termasuk "recordable injury" (untuk TRIR); injury = ada korban orang.
      */
     'incident_types' => [
-        'fatality' => ['label' => 'Fatality (Meninggal Dunia)', 'short' => 'Fatal', 'group' => 'lti', 'lti' => true, 'recordable' => true, 'injury' => true, 'color' => '#7f1d1d', 'default_severity' => 5],
-        'lost_time' => ['label' => 'Lost Time Injury (LTI)', 'short' => 'LTI', 'group' => 'lti', 'lti' => true, 'recordable' => true, 'injury' => true, 'color' => '#dc2626', 'default_severity' => 4],
-        'restricted_work' => ['label' => 'Restricted Work Case (RWC)', 'short' => 'RWC', 'group' => 'recordable', 'lti' => false, 'recordable' => true, 'injury' => true, 'color' => '#ea580c', 'default_severity' => 3],
-        'medical_treatment' => ['label' => 'Medical Treatment Case (MTC)', 'short' => 'MTC', 'group' => 'recordable', 'lti' => false, 'recordable' => true, 'injury' => true, 'color' => '#f59e0b', 'default_severity' => 3],
-        'first_aid' => ['label' => 'First Aid Case (P3K)', 'short' => 'FAC', 'group' => 'first_aid', 'lti' => false, 'recordable' => false, 'injury' => true, 'color' => '#eab308', 'default_severity' => 2],
-        'fire' => ['label' => 'Kebakaran / Peledakan', 'short' => 'Api', 'group' => 'asset', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#7c3aed', 'default_severity' => 3],
-        'vehicle' => ['label' => 'Kecelakaan Kendaraan / Alat Berat', 'short' => 'Kendaraan', 'group' => 'asset', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#0891b2', 'default_severity' => 3],
-        'property_damage' => ['label' => 'Kerusakan Properti / Peralatan', 'short' => 'Properti', 'group' => 'asset', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#2563eb', 'default_severity' => 2],
-        'environmental' => ['label' => 'Insiden Lingkungan (tumpahan, pencemaran)', 'short' => 'Lingkungan', 'group' => 'asset', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#16a34a', 'default_severity' => 2],
-        'near_miss' => ['label' => 'Nyaris Celaka (Near Miss)', 'short' => 'Near Miss', 'group' => 'near_miss', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#38c0b0', 'default_severity' => 1],
+        // A. Kecelakaan tambang (KEPMEN ESDM 1827 K/30/MEM/2018)
+        'fatality' => ['label' => 'Fatality', 'short' => 'Fatality', 'category' => 'mining', 'group' => 'lti', 'lti' => true, 'recordable' => true, 'injury' => true, 'color' => '#7f1d1d', 'default_severity' => 5, 'definition' => 'Pekerja meninggal dunia akibat kecelakaan tambang.'],
+        'serious_injury' => ['label' => 'Cidera Berat', 'short' => 'Cidera Berat', 'category' => 'mining', 'group' => 'lti', 'lti' => true, 'recordable' => true, 'injury' => true, 'color' => '#dc2626', 'default_severity' => 4, 'definition' => 'Korban tidak mampu melakukan tugas semula lebih dari 3 minggu.'],
+        'minor_injury' => ['label' => 'Cidera Ringan', 'short' => 'Cidera Ringan', 'category' => 'mining', 'group' => 'lti', 'lti' => true, 'recordable' => true, 'injury' => true, 'color' => '#f97316', 'default_severity' => 3, 'definition' => 'Korban tidak mampu melakukan tugas semula lebih dari 1 hari/shift sampai kurang dari 3 minggu.'],
+        // B. Kecelakaan umum (ANSI 1885.1/1990)
+        'restricted_work' => ['label' => 'Restricted Work Injury', 'short' => 'RWI', 'category' => 'general', 'group' => 'recordable', 'lti' => false, 'recordable' => true, 'injury' => true, 'color' => '#ea580c', 'default_severity' => 3, 'definition' => 'Cedera yang membuat pekerja hanya dapat melakukan sebagian tugas atau ditugaskan pekerjaan lain pada hari berikutnya.'],
+        'medical_treatment' => ['label' => 'Medical Treatment Injury', 'short' => 'MTI', 'category' => 'general', 'group' => 'recordable', 'lti' => false, 'recordable' => true, 'injury' => true, 'color' => '#f59e0b', 'default_severity' => 3, 'definition' => 'Cedera yang memerlukan perawatan medis di luar pertolongan pertama; pekerja dapat kembali bekerja.'],
+        'first_aid' => ['label' => 'First Aid Injury', 'short' => 'FAI', 'category' => 'general', 'group' => 'first_aid', 'lti' => false, 'recordable' => false, 'injury' => true, 'color' => '#eab308', 'default_severity' => 2, 'definition' => 'Cedera ringan yang cukup ditangani dengan pertolongan pertama (P3K).'],
+        'property_damage' => ['label' => 'Property Damage', 'short' => 'Prop. Damage', 'category' => 'general', 'group' => 'asset', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#2563eb', 'default_severity' => 2, 'definition' => 'Kerusakan peralatan, unit, atau properti (termasuk tabrakan kendaraan/alat berat tanpa korban).'],
+        // C. Kejadian lingkungan
+        'environmental' => ['label' => 'Pencemaran Lingkungan', 'short' => 'Lingkungan', 'category' => 'environment', 'group' => 'asset', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#16a34a', 'default_severity' => 2, 'definition' => 'Tumpahan, kebocoran, atau pembuangan yang mencemari tanah, air, atau udara.'],
+        // D. Kebakaran
+        'fire' => ['label' => 'Fire Case (Kebakaran / Ledakan)', 'short' => 'Fire Case', 'category' => 'fire', 'group' => 'asset', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#7c3aed', 'default_severity' => 3, 'definition' => 'Kebakaran atau ledakan, dengan atau tanpa kerugian.'],
+        // E. Incident (tidak ada kerugian)
+        'near_miss' => ['label' => 'Nearmiss', 'short' => 'Nearmiss', 'category' => 'incident', 'group' => 'near_miss', 'lti' => false, 'recordable' => false, 'injury' => false, 'color' => '#38c0b0', 'default_severity' => 1, 'definition' => 'Kejadian tidak diinginkan yang tidak menimbulkan korban maupun kerugian.'],
+    ],
+
+    // Kelompok laporan rekap (format laporan kecelakaan A-E). cumulative = total digabung dengan kelompok lain.
+    'incident_categories' => [
+        'mining' => ['code' => 'A', 'title' => 'KECELAKAAN TAMBANG', 'ref' => 'KEPMEN 1827/2018', 'total_label' => 'Total Mining Accident Case'],
+        'general' => ['code' => 'B', 'title' => 'KECELAKAAN UMUM', 'ref' => 'ANSI 1885.1/1990', 'total_label' => 'Total Accident Case', 'cumulative' => ['mining', 'general']],
+        'environment' => ['code' => 'C', 'title' => 'KEJADIAN LINGKUNGAN', 'ref' => null, 'total_label' => 'Total Case Environment'],
+        'fire' => ['code' => 'D', 'title' => 'FIRE CASE (KEBAKARAN)', 'ref' => null, 'total_label' => 'Total Fire Case'],
+        'incident' => ['code' => 'E', 'title' => 'INCIDENT (TIDAK ADA KERUGIAN)', 'ref' => null, 'total_label' => null],
     ],
 
     // Kelompok untuk grafik tren (urutan susun dari bawah ke atas) dan warnanya.
@@ -33,7 +51,7 @@ return [
         'near_miss' => ['label' => 'Nyaris celaka', 'color' => '#38c0b0'],
         'first_aid' => ['label' => 'Cedera ringan (P3K)', 'color' => '#eab308'],
         'recordable' => ['label' => 'Cedera tercatat (MTC/RWC)', 'color' => '#ea580c'],
-        'lti' => ['label' => 'LTI & Fatal', 'color' => '#b91c1c'],
+        'lti' => ['label' => 'Kecelakaan tambang (Fatal/Berat/Ringan)', 'color' => '#b91c1c'],
         'asset' => ['label' => 'Aset / Lingkungan / Api', 'color' => '#6366f1'],
     ],
 
@@ -71,13 +89,13 @@ return [
     ],
 
     // Tenggat investigasi (hari sejak dilaporkan) menurut jenis; sisanya memakai nilai default.
-    'investigation_days' => ['fatality' => 3, 'lost_time' => 5, 'default' => 7],
+    'investigation_days' => ['fatality' => 3, 'serious_injury' => 5, 'default' => 7],
 
     // Pelaporan awal ke HSE (jam sejak kejadian) untuk jenis yang berat.
-    'notify_hours' => ['fatality' => 1, 'lost_time' => 4, 'restricted_work' => 12, 'medical_treatment' => 12, 'fire' => 4, 'vehicle' => 12, 'environmental' => 12, 'default' => 24],
+    'notify_hours' => ['fatality' => 1, 'serious_injury' => 4, 'minor_injury' => 12, 'restricted_work' => 12, 'medical_treatment' => 12, 'fire' => 4, 'environmental' => 12, 'default' => 24],
 
     // Jenis yang langsung memicu email "darurat" ke daftar penerima insiden berat.
-    'severe_types' => ['fatality', 'lost_time', 'fire'],
+    'severe_types' => ['fatality', 'serious_injury', 'fire'],
 
     'hazard_categories' => [
         'unsafe_condition' => 'Kondisi tidak aman',

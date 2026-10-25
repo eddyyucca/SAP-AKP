@@ -22,7 +22,7 @@
     <input type="hidden" name="year" value="{{ $year }}">
     <div class="s-card">
         <div class="table-responsive">
-            <table class="table table-ssap mb-0 align-middle">
+            <table class="table table-ssap sticky-first mb-0 align-middle">
                 <thead><tr><th style="min-width:160px;">Lokasi</th>@for ($m = 1; $m <= 12; $m++)<th class="text-center">{{ \Illuminate\Support\Carbon::create(2000, $m, 1)->translatedFormat('M') }}</th>@endfor<th class="num">Total</th></tr></thead>
                 <tbody>
                 @foreach ($locations as $loc)

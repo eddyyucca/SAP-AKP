@@ -1,6 +1,6 @@
-# Stack Portainer SSAP Safety untuk metode "Repository" (Git). TANPA rahasia: nilai ${...} diisi di Portainer > Environment variables.
+# Stack Portainer SAP Safety untuk metode "Repository" (Git). TANPA rahasia: nilai ${...} diisi di Portainer > Environment variables.
 # Buat isiannya dengan: powershell -ExecutionPolicy Bypass -File deploy\portainer\buat-isian-ssap.ps1
-# Yang WAJIB diisi 3: DB_PASSWORD, APP_KEY, PORTAL_SSO_SECRET (dari Portal > Modul > SSAP Safety > Integrasi).
+# Yang WAJIB diisi 3: DB_PASSWORD, APP_KEY, PORTAL_SSO_SECRET (dari Portal > Modul > SAP Safety > Integrasi).
 # Stack ini BARU dan terpisah dari stack lain di server (nama stack, volume, dan port berbeda).
 services:
   db:
@@ -33,7 +33,7 @@ services:
     ports:
       - "${SSAP_PORT:-8112}:80"
     environment:
-      APP_NAME: "SSAP Safety"
+      APP_NAME: "SAP Safety"
       APP_ENV: production
       APP_DEBUG: "false"
       APP_KEY: ${APP_KEY}
@@ -78,7 +78,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      APP_NAME: "SSAP Safety"
+      APP_NAME: "SAP Safety"
       APP_ENV: production
       APP_DEBUG: "false"
       APP_KEY: ${APP_KEY}

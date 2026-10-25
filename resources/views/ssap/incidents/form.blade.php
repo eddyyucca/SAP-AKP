@@ -35,8 +35,12 @@
                             <label class="form-label req" for="incidentType">Jenis kejadian</label>
                             <select name="type" id="incidentType" class="form-select @error('type') is-invalid @enderror" required
                                     data-severity='@json(collect($types)->map->default_severity)' data-injury='@json(collect($types)->map->injury)'>
-                                @foreach ($types as $k => $t)
-                                    <option value="{{ $k }}" @selected(old('type', $incident->type ?? 'near_miss') === $k)>{{ $t['label'] }}</option>
+                                @foreach (config('ssap.incident_categories') as $catKey => $cat)
+                                    <optgroup label="{{ $cat['code'] }}. {{ $cat['title'] }}{{ $cat['ref'] ? ' ('.$cat['ref'].')' : '' }}">
+                                        @foreach ($types as $k => $t)
+                                            @if ($t['category'] === $catKey)<option value="{{ $k }}" @selected(old('type', $incident->type ?? 'near_miss') === $k)>{{ $t['label'] }}</option>@endif
+                                        @endforeach
+                                    </optgroup>
                                 @endforeach
                             </select>
                             <div class="form-text d-none" id="injuryHint"><i class="bi bi-info-circle me-1"></i>Jenis ini melibatkan cedera: tambahkan korban di bagian 3.</div>
@@ -59,6 +63,14 @@
                                 <option value="">Pilih lokasi...</option>
                                 @foreach ($locations as $l)<option value="{{ $l->id }}" @selected((int) old('location_id', $incident->location_id) === $l->id)>{{ $l->name }}</option>@endforeach
                             </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="contractor_id">Kontraktor terkait <span class="text-muted fw-normal">(bila terjadi di area/pekerjaan kontraktor IUP/IUJP)</span></label>
+                            <select name="contractor_id" id="contractor_id" class="form-select @error('contractor_id') is-invalid @enderror">
+                                <option value="">Bukan insiden kontraktor (karyawan AKP)</option>
+                                @foreach ($contractors as $c)<option value="{{ $c->id }}" @selected((int) old('contractor_id', $incident->contractor_id) === $c->id)>{{ $c->name }} ({{ strtoupper($c->area_type) }})</option>@endforeach
+                            </select>
+                            <div class="form-text"><i class="bi bi-info-circle me-1"></i>Kontraktor wajib menyampaikan LPI (Laporan Penyelidikan Insiden) sebelum tenggat; sistem mencatat dan mengingatkannya.</div>
                         </div>
                         <div class="col-12 col-md-4"><label class="form-label" for="area_detail">Detail area</label><input type="text" name="area_detail" id="area_detail" value="{{ old('area_detail', $incident->area_detail) }}" class="form-control" maxlength="160" placeholder="mis. KM 3 jalan hauling"></div>
                         <div class="col-12 col-md-4"><label class="form-label" for="activity">Aktivitas saat kejadian</label><input type="text" name="activity" id="activity" value="{{ old('activity', $incident->activity) }}" class="form-control" maxlength="160" placeholder="mis. Penggantian ban"></div>
@@ -139,8 +151,8 @@
             <div class="s-card mb-3">
                 <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-stopwatch"></i>Ketentuan waktu</h3></div>
                 <div class="s-card-body small text-muted">
-                    <p class="mb-2">Insiden berat harus dilaporkan ke HSE secepatnya (fatal 1 jam, LTI 4 jam). Kasus lain maksimal 24 jam.</p>
-                    <p class="mb-0">Investigasi: fatal {{ config('ssap.investigation_days.fatality') }} hari, LTI {{ config('ssap.investigation_days.lost_time') }} hari, lainnya {{ config('ssap.investigation_days.default') }} hari. <a href="{{ route('ssap.standard') }}">Lihat standar lengkap</a>.</p>
+                    <p class="mb-2">Insiden berat harus dilaporkan ke HSE secepatnya (fatal 1 jam, cidera berat 4 jam). Kasus lain maksimal 24 jam.</p>
+                    <p class="mb-0">Investigasi: fatal {{ config('ssap.investigation_days.fatality') }} hari, cidera berat {{ config('ssap.investigation_days.serious_injury') }} hari, lainnya {{ config('ssap.investigation_days.default') }} hari. <a href="{{ route('ssap.standard') }}">Lihat standar lengkap</a>.</p>
                 </div>
             </div>
 

@@ -7,7 +7,7 @@
 @endsection
 
 @section('content')
-<div class="alert alert-primary small"><i class="bi bi-journal-check me-1"></i>Halaman ini merangkum aturan pelaporan safety {{ config('ssap.company') }} yang dipakai di seluruh formulir, dashboard, dan laporan SSAP Safety.</div>
+<div class="alert alert-primary small"><i class="bi bi-journal-check me-1"></i>Halaman ini merangkum aturan pelaporan safety {{ config('ssap.company') }} yang dipakai di seluruh formulir, dashboard, dan laporan SAP Safety.</div>
 
 <div class="row g-3">
     <div class="col-12 col-xl-6">
@@ -48,14 +48,20 @@
             <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-3-circle"></i>Klasifikasi jenis kejadian</h3></div>
             <div class="table-responsive">
                 <table class="table table-ssap mb-0">
-                    <thead><tr><th>Jenis</th><th class="text-center">LTI</th><th class="text-center">Tercatat (TRIR)</th></tr></thead>
+                    <thead><tr><th>Jenis &amp; definisi</th><th class="text-center">LTI</th><th class="text-center">Tercatat (TRIR)</th></tr></thead>
                     <tbody>
-                    @foreach ($types as $t)
-                        <tr><td><span class="legend-dot" style="background:{{ $t['color'] }}"></span>{{ $t['label'] }}</td><td class="text-center">{!! $t['lti'] ? '<i class="bi bi-check-lg text-danger"></i>' : '-' !!}</td><td class="text-center">{!! $t['recordable'] ? '<i class="bi bi-check-lg text-warning"></i>' : '-' !!}</td></tr>
+                    @foreach (config('ssap.incident_categories') as $catKey => $cat)
+                        <tr><td colspan="3" class="fw-bold" style="background:#f1f5f9;color:#203868;">{{ $cat['code'] }}. {{ $cat['title'] }}{{ $cat['ref'] ? ' ('.$cat['ref'].')' : '' }}</td></tr>
+                        @foreach ($types as $t)
+                            @if ($t['category'] === $catKey)
+                                <tr><td><span class="legend-dot" style="background:{{ $t['color'] }}"></span><strong>{{ $t['label'] }}</strong><div class="small text-muted">{{ $t['definition'] ?? '' }}</div></td><td class="text-center">{!! $t['lti'] ? '<i class="bi bi-check-lg text-danger"></i>' : '-' !!}</td><td class="text-center">{!! $t['recordable'] ? '<i class="bi bi-check-lg text-warning"></i>' : '-' !!}</td></tr>
+                            @endif
+                        @endforeach
                     @endforeach
                     </tbody>
                 </table>
             </div>
+            <div class="small text-muted p-3 pt-2">Pengelompokan mengikuti format laporan kecelakaan: A tambang (KEPMEN ESDM 1827 K/30/MEM/2018), B umum (ANSI), C lingkungan, D kebakaran, E nearmiss. Ambang hari kerja hilang mengikuti ketentuan tersebut; sesuaikan di <code>config/ssap.php</code> bila KTT/HSE menetapkan lain.</div>
         </div>
     </div>
     <div class="col-12 col-xl-6">

@@ -89,11 +89,11 @@ class SettingController extends Controller
         }
 
         $html = view('emails.notice', [
-            'heading' => 'Email uji SSAP Safety', 'intro' => 'Jika Anda menerima email ini, notifikasi SSAP Safety lewat AKP Mail berfungsi.',
+            'heading' => 'Email uji SAP Safety', 'intro' => 'Jika Anda menerima email ini, notifikasi SAP Safety lewat AKP Mail berfungsi.',
             'rows' => ['Dikirim oleh' => portal_user()->name, 'Waktu' => now()->translatedFormat('d F Y H:i')], 'url' => route('ssap.home'), 'tone' => '#203868',
         ])->render();
 
-        $log = $mail->send($to, 'Email uji SSAP Safety', $html, 'test');
+        $log = $mail->send($to, 'Email uji SAP Safety', $html, 'test');
 
         return back()->with($log && $log->status !== 'failed' ? 'success' : 'error', $log && $log->status !== 'failed'
             ? "Email uji dikirim ke {$to} (status: {$log->status}). ".$health['message']

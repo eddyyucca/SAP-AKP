@@ -389,13 +389,47 @@ class SafetyStats
         return compact('labels', 'data', 'colors');
     }
 
+    /**
+     * Rekap jumlah kasus per jenis, dikelompokkan A-E sesuai format laporan kecelakaan
+     * (A tambang KEPMEN 1827/2018, B umum ANSI, C lingkungan, D kebakaran, E nearmiss).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function recap(): array
+    {
+        $counts = $this->incidents()->countBy('type');
+        $types = config('ssap.incident_types');
+        $out = [];
+
+        foreach (config('ssap.incident_categories') as $key => $cat) {
+            $rows = [];
+            $total = 0;
+            foreach ($types as $typeKey => $t) {
+                if (($t['category'] ?? null) === $key) {
+                    $n = (int) ($counts[$typeKey] ?? 0);
+                    $rows[] = ['label' => $t['label'], 'count' => $n, 'color' => $t['color']];
+                    $total += $n;
+                }
+            }
+            $out[$key] = $cat + ['key' => $key, 'rows' => $rows, 'total' => $total];
+        }
+
+        foreach ($out as $key => $cat) {
+            if (! empty($cat['cumulative'])) {
+                $out[$key]['total'] = array_sum(array_map(fn ($k) => $out[$k]['total'], $cat['cumulative']));
+            }
+        }
+
+        return array_values($out);
+    }
+
     /** Insiden yang butuh perhatian: investigasi terlambat/belum ada investigator, berat yang masih terbuka. */
     public function attention(int $limit = 6): Collection
     {
         return Incident::query()->with('location:id,name')
             ->whereNotIn('status', ['closed', 'cancelled'])
             ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->orderByRaw("case when type in ('fatality','lost_time') then 0 else 1 end")
+            ->orderByRaw('case when type in ('.collect(config('ssap.severe_types'))->map(fn ($t) => "'".$t."'")->implode(',').') then 0 else 1 end')
             ->orderBy('investigation_due')
             ->limit($limit)->get();
     }

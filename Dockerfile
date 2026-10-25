@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Dockerfile MANDIRI SSAP Safety: konteks build = folder repositori ini saja.
+# Dockerfile MANDIRI SAP Safety: konteks build = folder repositori ini saja.
 #
 #   docker build -t ghcr.io/eddyyucca/akp-ssap-safety:latest .
 #

@@ -25,7 +25,7 @@
 <body>
 <div class="toolbar"><button onclick="window.print()">Cetak / Simpan PDF</button></div>
 <div class="bar">
-    <div><h1>LAPORAN INSIDEN</h1><div style="font-size:10px;opacity:.85;">{{ config('ssap.company') }} &middot; SSAP Safety</div></div>
+    <div><h1>LAPORAN INSIDEN</h1><div style="font-size:10px;opacity:.85;">{{ config('ssap.company') }} &middot; SAP Safety</div></div>
     <div style="text-align:right;"><strong style="font-size:14px;">{{ $incident->number }}</strong><div style="font-size:10px;">Dicetak {{ now()->translatedFormat('d F Y H:i') }}</div></div>
 </div>
 

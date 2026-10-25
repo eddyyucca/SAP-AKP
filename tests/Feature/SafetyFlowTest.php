@@ -193,7 +193,7 @@ class SafetyFlowTest extends TestCase
     public function test_dashboards_and_reports_compute_and_render(): void
     {
         ManHour::create(['year' => now()->year, 'month' => now()->month, 'location_id' => $this->site->id, 'hours' => 500_000]);
-        $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['type' => 'lost_time', 'persons' => [['role' => 'korban', 'name' => 'A', 'lost_days' => 4]]]));
+        $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['type' => 'serious_injury', 'persons' => [['role' => 'korban', 'name' => 'A', 'lost_days' => 4]]]));
         $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['type' => 'near_miss', 'persons' => []]));
 
         $kpi = SafetyStats::forYear((int) now()->year)->kpis();
@@ -269,5 +269,87 @@ class SafetyFlowTest extends TestCase
         $this->as('user')->post('/ssap/insiden', $this->incidentPayload())->assertSessionHasNoErrors();
         $this->assertSame(2, Incident::count());
         $this->assertSame('failed', \App\Models\EmailLog::latest('id')->first()->status);
+    }
+
+    public function test_contractor_incidents_require_an_lpi_that_hse_receives_and_reviews(): void
+    {
+        $iup = \App\Models\Contractor::create(['name' => 'PT Tambang Contoh', 'area_type' => 'iup', 'pic_name' => 'Pak PIC', 'pic_email' => 'pic@kontraktor.test']);
+        $iujp = \App\Models\Contractor::create(['name' => 'PT Jasa Contoh', 'area_type' => 'iujp']);
+
+        // Insiden kontraktor -> LPI wajib; near miss dikecualikan; insiden AKP tanpa kontraktor tidak punya LPI.
+        $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['contractor_id' => $iup->id]))->assertSessionHasNoErrors();
+        $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['contractor_id' => $iup->id, 'type' => 'near_miss', 'persons' => []]));
+        $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['type' => 'near_miss', 'persons' => []]));
+
+        [$a, $b, $c] = Incident::orderBy('id')->get()->all();
+        $this->assertSame('pending', $a->lpi_status);
+        $this->assertSame(now()->addDays(7)->toDateString(), $a->lpi_due->toDateString());   // medical_treatment: tenggat default 7 hari
+        $this->assertNull($b->lpi_status);
+        $this->assertNull($c->lpi_status);
+
+        // Hanya HSE/admin yang mencatat dan meninjau.
+        $this->as('user')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'receive', 'lpi_number' => 'LPI-1'])->assertForbidden();
+        $this->as('manager')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'receive', 'lpi_number' => 'LPI-1'])->assertForbidden();
+        $this->as('hse')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'receive'])->assertSessionHasErrors('lpi_number');
+        $this->as('hse')->post("/ssap/insiden/{$b->id}/lpi", ['action' => 'receive', 'lpi_number' => 'X'])->assertNotFound();
+        $this->as('hse')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'accept'])->assertSessionHasErrors('action');   // belum diterima
+
+        $this->as('hse')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'receive', 'lpi_number' => 'LPI/001', 'files' => [UploadedFile::fake()->create('lpi.pdf', 100, 'application/pdf')]])->assertSessionHasNoErrors();
+        $a->refresh();
+        $this->assertSame('submitted', $a->lpi_status);
+        $this->assertTrue($a->lpiOnTime());
+        $this->assertSame(1, $a->attachments()->count());
+
+        $this->as('hse')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'revise'])->assertSessionHasErrors('note');
+        $this->as('hse')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'revise', 'note' => 'Lengkapi 5-Why'])->assertSessionHasNoErrors();
+        $this->assertSame('revision', $a->fresh()->lpi_status);
+
+        $this->as('hse')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'receive', 'lpi_number' => 'LPI/001-R1']);
+        $this->assertSame(1, $a->fresh()->lpi_revisions);
+        $this->as('hse')->post("/ssap/insiden/{$a->id}/lpi", ['action' => 'accept'])->assertSessionHasNoErrors();
+        $this->assertSame('accepted', $a->fresh()->lpi_status);
+
+        // Monitoring: LPI terlambat dihitung per kontraktor.
+        $late = Incident::create($this->incidentRow($iujp->id, now()->subDays(20)));
+        $stats = new \App\Services\LpiStats(now()->startOfYear(), now()->endOfYear());
+        $kpi = $stats->kpis();
+        $this->assertSame(2, $kpi['required']);
+        $this->assertSame(1, $kpi['overdue']);
+        $this->assertSame(100, $kpi['on_time_pct']);
+        $rows = collect($stats->byContractor())->keyBy('name');
+        $this->assertSame(1, $rows['PT Jasa Contoh']['overdue']);
+        $this->assertSame(1, $rows['PT Tambang Contoh']['accepted']);
+
+        $this->as('manager')->get('/ssap/lpi')->assertOk()->assertSee('PT Jasa Contoh')->assertSee('PT Tambang Contoh');
+        $this->as('manager')->get('/ssap/lpi/ekspor')->assertOk();
+        $this->as('user')->get('/ssap/lpi')->assertForbidden();
+        $this->as('hse')->get('/ssap/kontraktor')->assertOk();
+        $this->as('manager')->get('/ssap/kontraktor')->assertForbidden();
+        $this->as('hse')->get("/ssap/insiden/{$late->id}")->assertOk()->assertSee('LPI kontraktor');
+    }
+
+    public function test_incident_types_follow_the_official_classification(): void
+    {
+        $labels = collect(config('ssap.incident_types'))->pluck('label')->all();
+        foreach (['Fatality', 'Cidera Berat', 'Cidera Ringan', 'Restricted Work Injury', 'Medical Treatment Injury', 'First Aid Injury', 'Property Damage', 'Pencemaran Lingkungan', 'Fire Case (Kebakaran / Ledakan)', 'Nearmiss'] as $label) {
+            $this->assertContains($label, $labels);
+        }
+        $this->assertSame(['mining', 'general', 'environment', 'fire', 'incident'], array_keys(config('ssap.incident_categories')));
+
+        $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['type' => 'property_damage', 'persons' => []]));
+        $this->as('user')->post('/ssap/insiden', $this->incidentPayload(['type' => 'minor_injury']));
+        $recap = collect(SafetyStats::forYear((int) now()->year)->recap())->keyBy('key');
+        $this->assertSame(1, $recap['mining']['total']);
+        $this->assertSame(2, $recap['general']['total']);   // Total Accident Case = A + B
+        $this->as('manager')->get('/ssap/laporan')->assertOk()->assertSee('KECELAKAAN TAMBANG')->assertSee('Total Accident Case');
+    }
+
+    private function incidentRow(int $contractorId, \Illuminate\Support\Carbon $at): array
+    {
+        return [
+            'number' => 'INC-TEST-'.$contractorId.$at->format('md'), 'type' => 'medical_treatment', 'severity' => 3, 'occurred_at' => $at, 'location_id' => $this->site->id,
+            'contractor_id' => $contractorId, 'title' => 'Insiden lama', 'description' => 'Insiden lama tanpa LPI.', 'reporter_name' => 'X', 'status' => 'submitted',
+            'lpi_status' => 'pending', 'lpi_due' => $at->copy()->addDays(7)->toDateString(), 'created_at' => $at, 'updated_at' => $at,
+        ];
     }
 }

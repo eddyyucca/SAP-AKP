@@ -1,3 +1,3 @@
 <footer class="py-3 px-4 border-top text-center text-muted small bg-white mt-auto">
-    &copy; {{ date('Y') }} PT Adhi Kartiko Pratama Tbk &middot; SSAP Safety (AKPSatu)
+    &copy; {{ date('Y') }} PT Adhi Kartiko Pratama Tbk &middot; Safety Accountability Program (SAP) &middot; AKPSatu
 </footer>

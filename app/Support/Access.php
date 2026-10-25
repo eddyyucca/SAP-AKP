@@ -5,7 +5,7 @@ namespace App\Support;
 use Akp\PortalSso\PortalUser;
 
 /**
- * Hak akses SSAP Safety. Semua pemeriksaan memakai KODE level (config/sso.php), bukan angka tingkat.
+ * Hak akses SAP Safety. Semua pemeriksaan memakai KODE level (config/sso.php), bukan angka tingkat.
  *
  *  admin   : semua, termasuk lokasi, jam kerja, pengaturan, hapus data
  *  hse     : mengelola laporan (investigasi, penutupan, tindakan, verifikasi)

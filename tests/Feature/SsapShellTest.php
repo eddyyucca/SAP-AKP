@@ -30,7 +30,7 @@ class SsapShellTest extends TestCase
     public function test_every_declared_level_opens_the_dashboard_and_unknown_levels_are_refused(): void
     {
         foreach (['admin', 'hse', 'manager', 'user'] as $role) {
-            $this->loginPortal(['id' => '2', 'name' => 'Budi', 'role' => $role, 'level' => 10])->get('/ssap')->assertOk()->assertSee('Dashboard SSAP Safety')->assertSee('Budi');
+            $this->loginPortal(['id' => '2', 'name' => 'Budi', 'role' => $role, 'level' => 10])->get('/ssap')->assertOk()->assertSee('Dashboard SAP Safety')->assertSee('Budi');
         }
 
         $this->loginPortal(['role' => 'tamu', 'level' => 1])->get('/ssap')->assertForbidden();
@@ -51,7 +51,7 @@ class SsapShellTest extends TestCase
         };
 
         $admin = $sidebar('admin');
-        foreach (['Dashboard', 'Lapor Insiden', 'Inspeksi Rutin', 'Dashboard Inspeksi', 'Laporan &amp; Grafik', 'Template Inspeksi', 'Jam Kerja', 'Lokasi / Site', 'Pengaturan', 'Standar Pelaporan'] as $label) {
+        foreach (['Dashboard', 'Lapor Insiden', 'Inspeksi Rutin', 'Dashboard Inspeksi', 'Laporan &amp; Grafik', 'Template Inspeksi', 'Jam Kerja', 'Lokasi / Site', 'Pengaturan', 'Standar Pelaporan', 'Monitoring LPI Kontraktor', 'Kontraktor (IUP/IUJP)'] as $label) {
             $this->assertStringContainsString($label, $admin, $label);
         }
         $this->assertStringContainsString('sidebar-link active', $admin);

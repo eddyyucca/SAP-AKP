@@ -51,6 +51,7 @@ class ReportController extends Controller
             'locations' => Location::ordered()->get(['id', 'name']),
             'kpi' => $stats->kpis(),
             'charts' => $stats->charts(),
+            'recap' => $stats->recap(),
             'typeRows' => $typeRows,
             'monthRows' => $monthRows,
             'locationRows' => $locationRows,
@@ -73,6 +74,7 @@ class ReportController extends Controller
             'month' => $month,
             'location' => $locationId ? Location::find($locationId) : null,
             'kpi' => $stats->kpis(),
+            'recap' => $stats->recap(),
             'ytd' => $yearStats->kpis(),
             'charts' => $yearStats->charts(),
             'incidents' => Incident::with('location:id,name')->where('status', '!=', 'cancelled')

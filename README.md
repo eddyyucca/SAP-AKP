@@ -1,4 +1,4 @@
-# SSAP Safety
+# SAP - Safety Accountability Program
 
 Modul AKPSatu untuk **pelaporan dan pemantauan keselamatan kerja** PT Adhi Kartiko Pratama Tbk: laporan insiden, hazard, inspeksi rutin,
 tindakan korektif, serta dashboard dan laporan (LTIFR, TRIR, peta risiko, kepatuhan inspeksi).
@@ -12,6 +12,8 @@ Karyawan disinkronkan dari **HRIS** (API baca-saja) dan notifikasi dikirim lewat
 |---|---|
 | **Dashboard** | Hari tanpa LTI, LTIFR/TRIR/Severity Rate, tren per bulan, jenis & keparahan, peta panas risiko 5x5, per lokasi/departemen, akar masalah, status tindakan, pelapor teraktif. Pelapor biasa melihat ringkasan pribadi. |
 | **Laporan Insiden** | 10 jenis (Fatal, LTI, RWC, MTC, P3K, kebakaran, kendaraan, properti, lingkungan, near miss), korban/saksi (cari dari HRIS), potensi risiko, foto/dokumen, investigasi 5-Why + akar masalah, alur Dilaporkan → Investigasi → Tindak lanjut → Ditutup, cetak A4. |
+| **Jenis kejadian** | Mengikuti format laporan kecelakaan: **A** Kecelakaan Tambang (KEPMEN ESDM 1827/2018: Fatality, Cidera Berat, Cidera Ringan), **B** Kecelakaan Umum (ANSI: RWI, MTI, FAI, Property Damage), **C** Pencemaran Lingkungan, **D** Fire Case, **E** Nearmiss. Rekap A–E ada di Laporan & Grafik dan Ringkasan Bulanan (Total Mining Accident Case, Total Accident Case, dst). Definisi & ambang hari kerja hilang ada di `config/ssap.php`. |
+| **Monitoring LPI Kontraktor** | Master kontraktor area **IUP / IUJP**; insiden dapat dikaitkan ke kontraktor, lalu LPI (Laporan Penyelidikan Insiden) wajib masuk sebelum tenggat (Fatal 3 hari, Cidera Berat 5 hari, lainnya 7 hari; Nearmiss dikecualikan). HSE mencatat LPI diterima, menyetujui, atau meminta revisi. Dashboard per kontraktor: diterima, tepat waktu, terlambat, revisi, rata-rata hari; pengingat email harian ke PIC kontraktor; ekspor CSV. |
 | **Hazard Report** | Penilaian risiko matriks 5x5 dengan tenggat otomatis (Ekstrem 1 hari … Rendah 14 hari), penugasan PIC, tutup otomatis saat semua tindakan terverifikasi. |
 | **Inspeksi Rutin** | Template checklist (5 bawaan, bisa diubah), isian Sesuai / Tidak sesuai / N/A, skor otomatis, **temuan otomatis menjadi hazard**, dashboard kepatuhan terhadap target bulanan. |
 | **Tindakan Korektif** | HSE menugaskan PIC + tenggat → PIC memperbarui dengan bukti → HSE memverifikasi/mengembalikan. Pengingat harian. |
@@ -50,7 +52,7 @@ php artisan serve --port=8009
 
 1. Nyalakan MySQL XAMPP, buat database `akp_ssap_safety` (utf8mb4).
 2. Portal > Modul > Tambah modul: kode `ssap-safety`, URL `http://localhost:8009`; salin rahasia dari halaman Integrasi ke `.env`.
-3. `php artisan portal-sso:check`, lalu buka Portal dan klik modul **SSAP Safety**. Beri level di Portal > Pengguna & Akses.
+3. `php artisan portal-sso:check`, lalu buka Portal dan klik modul **SAP Safety**. Beri level di Portal > Pengguna & Akses.
 4. Login sebagai admin, tambahkan **Lokasi / Site** dan isi **Jam Kerja**.
 
 **Data demo (rekaan, hanya non-produksi):**

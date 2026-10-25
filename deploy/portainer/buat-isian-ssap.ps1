@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  (LAPTOP) Membuat "isian" untuk stack SSAP Safety di Portainer, lalu menyalinnya ke clipboard.
+  (LAPTOP) Membuat "isian" untuk stack SAP Safety di Portainer, lalu menyalinnya ke clipboard.
 .DESCRIPTION
   Nilai wajib: DB_PASSWORD, APP_KEY, PORTAL_SSO_SECRET. Bila berkas -OutFile sudah ada, nilainya DIPAKAI ULANG
   (volume database hanya menerima kata sandi yang dipakai pertama kali). Pakai -Baru hanya untuk database yang belum pernah dibuat.
@@ -34,8 +34,8 @@ if (-not $key)  { $key = 'base64:' + [Convert]::ToBase64String((Rand 32)); Write
 $sso = $SsoSecret
 if (-not $sso -and $prev['PORTAL_SSO_SECRET']) { $sso = $prev['PORTAL_SSO_SECRET']; Write-Host '  [OK] Rahasia SSO dipakai ulang' -ForegroundColor Green }
 if (-not $sso) {
-  Write-Host '  Salin rahasia SSO dari Portal > Modul > SSAP Safety > Integrasi, lalu tempel di bawah.' -ForegroundColor Yellow
-  $sec = Read-Host '  Rahasia SSO modul SSAP Safety (tidak tampil saat diketik)' -AsSecureString
+  Write-Host '  Salin rahasia SSO dari Portal > Modul > SAP Safety > Integrasi, lalu tempel di bawah.' -ForegroundColor Yellow
+  $sec = Read-Host '  Rahasia SSO modul SAP Safety (tidak tampil saat diketik)' -AsSecureString
   $sso = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
 }
 if (-not $sso -or $sso -match '\s' -or $sso.Length -lt 32) { Write-Host '  [GAGAL] Rahasia SSO kosong, memuat spasi, atau kurang dari 32 karakter.' -ForegroundColor Red; exit 1 }

@@ -64,7 +64,13 @@
 <div class="row g-3 mb-3">
     <div class="col-12 col-xl-6">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-table"></i>Rekap per jenis kejadian</h3></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-clipboard-data"></i>Rekap kecelakaan (format A-E)</h3></div>
+            <div class="s-card-body">@include('ssap._recap', ['recap' => $recap])</div>
+        </div>
+    </div>
+    <div class="col-12 col-xl-6">
+        <div class="s-card h-100">
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-table"></i>Hari kerja hilang per jenis</h3></div>
             <div class="table-responsive"><table class="table table-ssap mb-0">
                 <thead><tr><th>Jenis</th><th class="num">Kasus</th><th class="num">Hari hilang</th></tr></thead>
                 <tbody>

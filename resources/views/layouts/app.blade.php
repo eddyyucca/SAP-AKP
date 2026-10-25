@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'SSAP Safety') | {{ config('app.name', 'SSAP Safety') }}</title>
+    <title>@yield('title', 'SAP Safety') | {{ config('app.name', 'SAP Safety') }}</title>
     <link rel="icon" href="{{ asset('assets/images/akp.png') }}" type="image/png">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -100,6 +100,14 @@ document.addEventListener('click', function (e) {
     } catch (err) { /* href ke Beranda tetap berjalan */ }
 });
 </script>
+<div class="page-loading" id="pageLoading" aria-hidden="true" role="status" aria-live="polite">
+    <div class="page-loading-box">
+        <div class="spinner-border text-primary mb-3" style="width:2.6rem;height:2.6rem;" aria-hidden="true"></div>
+        <div class="fw-semibold" id="pageLoadingText">Memuat data...</div>
+        <div class="small text-muted mt-1">Mohon tunggu sebentar</div>
+    </div>
+</div>
+<script src="{{ asset('assets/js/app.js') }}?v=2"></script>
 @stack('scripts')
 </body>
 </html>

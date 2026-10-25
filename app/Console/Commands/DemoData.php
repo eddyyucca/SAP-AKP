@@ -26,7 +26,7 @@ class DemoData extends Command
 
         (new DemoSeeder)->run();
 
-        $this->info('Data demo dibuat. Buka dashboard SSAP Safety untuk melihatnya.');
+        $this->info('Data demo dibuat. Buka dashboard SAP Safety untuk melihatnya.');
 
         return self::SUCCESS;
     }

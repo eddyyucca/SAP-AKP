@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard')
-@section('page-title', 'Dashboard SSAP Safety')
+@section('page-title', 'Dashboard SAP Safety')
 @section('breadcrumb')
     <li class="breadcrumb-item active">Dashboard</li>
 @endsection
@@ -83,7 +83,7 @@
         <x-kpi label="Hazard dilaporkan" :value="$kpi['hazards']" icon="bi-cone-striped" tone="info" :sub="$kpi['hazards_open'].' masih terbuka'" :href="route('ssap.hazards.index', ['scope' => 'open'])" />
     </div>
     <div class="col-6 col-md-4 col-xl-2">
-        <x-kpi label="Hazard tinggi/ekstrem" :value="$kpi['hazards_high']" icon="bi-lightning-charge" :tone="$kpi['hazards_high'] ? 'danger' : 'success'" sub="Belum ditutup" :href="route('ssap.hazards.index', ['scope' => 'open', 'risk' => 'severe'])" />
+        <x-kpi label="Hazard risiko tinggi" :value="$kpi['hazards_high']" icon="bi-lightning-charge" :tone="$kpi['hazards_high'] ? 'danger' : 'success'" sub="Belum ditutup" :href="route('ssap.hazards.index', ['scope' => 'open', 'risk' => 'severe'])" />
     </div>
     <div class="col-6 col-md-4 col-xl-2">
         <x-kpi label="Tindakan terlambat" :value="$kpi['actions_overdue']" icon="bi-alarm" :tone="$kpi['actions_overdue'] ? 'danger' : 'success'" :sub="$kpi['actions_pending'].' menunggu selesai'" :href="route('ssap.actions.index', ['view' => 'overdue'])" />

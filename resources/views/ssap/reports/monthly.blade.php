@@ -35,7 +35,7 @@
 
 <div class="sheet">
     <div class="head d-flex justify-content-between align-items-center">
-        <div><div style="font-size:10px;opacity:.8;">{{ config('ssap.company') }} &middot; SSAP Safety</div><div class="fw-bold" style="font-size:18px;">Ringkasan Safety Bulanan</div></div>
+        <div><div style="font-size:10px;opacity:.8;">{{ config('ssap.company') }} &middot; SAP Safety</div><div class="fw-bold" style="font-size:18px;">Ringkasan Safety Bulanan</div></div>
         <div class="text-end"><div class="fw-bold">{{ $month->translatedFormat('F Y') }}</div><div style="font-size:10px;">{{ $location?->name ?? 'Semua lokasi' }}</div></div>
     </div>
 
@@ -59,6 +59,9 @@
         <div class="col-7"><div class="ch"><canvas id="cvTrend"></canvas></div></div>
         <div class="col-5"><div class="ch"><canvas id="cvType"></canvas></div></div>
     </div>
+
+    <h2>Rekap kecelakaan bulan ini (format A-E)</h2>
+    @include('ssap._recap', ['recap' => $recap])
 
     <h2>Rekap per lokasi (bulan ini)</h2>
     <table class="table table-sm table-bordered mb-0">

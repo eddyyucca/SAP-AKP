@@ -8,7 +8,7 @@
         <span class="kpi-name">{{ $label }}</span>
         <span class="kpi-ico tone-{{ $tone }}"><i class="bi {{ $icon }}"></i></span>
     </div>
-    <div class="kpi-num">{{ $value }}</div>
+    <div class="kpi-num {{ mb_strlen((string) $value) > 7 ? 'kpi-num-long' : '' }}">{{ $value }}</div>
     @if ($sub)<div class="kpi-sub">{{ $sub }}</div>@endif
 @if ($href)
 </a>
