@@ -112,8 +112,9 @@ class TargetTest extends TestCase
     public function test_the_target_page_is_scoped_by_grade(): void
     {
         $this->as('301')->get('/ssap/target')->assertOk()->assertSee('Target Saya')->assertSee('Capaian saya')->assertDontSee('Anggota Empat');
-        $this->as('500')->get('/ssap/target')->assertOk()->assertSee('Target Tim')->assertSee('Anggota Tiga')->assertSee('Anggota Empat')->assertDontSee('Anggota Lain');
-        $this->as('600')->get('/ssap/target')->assertOk()->assertSee('Target Departemen')->assertSee('Anggota Lain')->assertSee('Logistik')->assertSee('Produksi');
+        $this->as('500')->get('/ssap/target')->assertOk()->assertSee('Terdeteksi dari HRIS: Grade 5')->assertSee('2 bawahan')->assertSee('Target Tim')->assertSee('Anggota Tiga')->assertSee('Anggota Empat')->assertDontSee('Anggota Lain');
+        $this->as('600')->get('/ssap/target')->assertOk()->assertSee('Terdeteksi dari HRIS: Grade 6')->assertSee('seluruh departemen dan setiap anggota')->assertSee('Target Departemen')->assertSee('Anggota Lain')->assertSee('Logistik')->assertSee('Produksi');
+        $this->as('999')->get('/ssap/target')->assertOk()->assertSee('Grade Anda belum terbaca dari HRIS')->assertSee('Target Saya');
         $this->as('600')->get('/ssap/target?department=Logistik&only=behind')->assertOk()->assertSee('Anggota Lain')->assertDontSee('Anggota Tiga');
         $this->as('600')->get('/ssap/target?date=2026-13-40')->assertSessionHasErrors('date');
         $this->as('600')->get('/ssap/target?date='.now()->subWeek()->toDateString())->assertOk()->assertSee('Anggota Lain');

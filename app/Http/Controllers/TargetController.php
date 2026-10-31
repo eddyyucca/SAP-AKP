@@ -50,6 +50,7 @@ class TargetController extends Controller
         );
 
         return view('ssap.targets', [
+            'me' => $scope['nik'] ? app(\App\Services\HrisEmployees::class)->find($scope['nik']) : null,
             'pager' => $pager,
             'ref' => $ref,
             'scope' => $scope,

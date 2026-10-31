@@ -15,6 +15,23 @@
 @endsection
 
 @section('content')
+{{-- Level terdeteksi otomatis dari HRIS --}}
+<div class="alert {{ $scope['grade'] === null ? 'alert-warning' : 'alert-success' }} small mb-3">
+    <i class="bi bi-person-badge me-1"></i>
+    @if ($scope['grade'] === null)
+        <strong>Grade Anda belum terbaca dari HRIS</strong>, jadi Anda diperlakukan seperti grade 3-4 dan hanya melihat target Anda sendiri. Pastikan NIK Portal Anda sama dengan NIK di HRIS dan grade Anda sudah diisi.
+    @else
+        <strong>Terdeteksi dari HRIS: Grade {{ $scope['grade'] }}@if (! empty($me['position'])) &middot; {{ $me['position'] }}@endif</strong>
+        @if ($mode === 'all')
+            &mdash; Anda dapat melihat target <strong>seluruh departemen dan setiap anggota</strong>@if ($scope['grade'] >= 6) (grade 6 ke atas)@endif.
+        @elseif ($mode === 'team')
+            &mdash; Anda dapat melihat <strong>target Anda dan setiap anggota tim</strong> ({{ max(0, count($scope['niks']) - 1) }} bawahan menurut atasan langsung di HRIS).@if (count($scope['niks']) <= 1) <span class="text-danger">Belum ada bawahan terdaftar; minta HR mengisi atasan langsung di HRIS.</span>@endif
+        @else
+            &mdash; grade 3-4 hanya melihat target sendiri. Grade 5 ke atas dapat melihat target tim dan anggota.
+        @endif
+    @endif
+</div>
+
 <div class="alert alert-primary small mb-3">
     <i class="bi bi-bullseye me-1"></i><strong>Target pelaporan</strong> berlaku untuk grade yang ditetapkan di Pengaturan (grade menurut HRIS):
     @foreach ($targets as $g => $t)@if ($t['hazard'] + $t['inspection'] > 0)<span class="d-inline-block me-3">Grade {{ $g }}: <strong>{{ $t['hazard'] }}</strong> hazard{{ $t['inspection'] ? ' + '.$t['inspection'].' inspeksi' : '' }} {{ $periodNames[$t['period']] }}</span>@endif @endforeach
@@ -60,6 +77,8 @@
             </div>
         </div>
     </div>
+@elseif ($mode !== 'self')
+    <div class="alert alert-secondary small"><i class="bi bi-info-circle me-1"></i>Grade {{ $scope['grade'] ?? '-' }} tidak punya target pribadi di Pengaturan; yang tampil adalah target {{ $mode === 'all' ? 'seluruh departemen' : 'tim Anda' }}.</div>
 @elseif ($mode === 'self')
     <div class="alert alert-secondary small">Grade Anda di HRIS belum terbaca atau grade tersebut belum punya target di Pengaturan, jadi tidak ada target untuk Anda.</div>
 @endif
