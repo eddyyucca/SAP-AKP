@@ -15,7 +15,7 @@
                 <form method="POST" action="{{ route('ssap.settings.update') }}">
                     @csrf @method('PUT')
                     <p class="small text-muted">Isi alamat email dipisah koma atau baris baru. Pelapor, investigator, dan PIC otomatis menerima email sesuai perannya (alamat diambil dari HRIS).</p>
-                    @foreach (['notify_hse' => ['Tim HSE', 'Menerima setiap hazard baru, tindakan yang menunggu verifikasi, dan ringkasan harian.'] ] as $key => [$label, $hint])
+                    @foreach (['notify_hse' => ['Tim HSE', 'Menerima setiap hazard baru, penutupan hazard, dan ringkasan harian.'] ] as $key => [$label, $hint])
                         <div class="mb-3">
                             <label class="form-label fw-semibold small mb-1" for="{{ $key }}">{{ $label }}</label>
                             <textarea name="{{ $key }}" id="{{ $key }}" rows="2" class="form-control form-control-sm @error($key) is-invalid @enderror" placeholder="nama@akp.co.id, ...">{{ old($key, $emails[$key]) }}</textarea>
@@ -28,19 +28,22 @@
                         <label class="form-check-label small" for="notify_reporter">Kirim email konfirmasi &amp; kabar perkembangan ke pelapor</label>
                     </div>
                     <div class="mb-3">
-                        <div class="form-label fw-semibold small mb-1">Target pelaporan per bulan (menurut grade HRIS)</div>
-                        <table class="table table-sm table-ssap mb-1" style="max-width:420px;">
-                            <thead><tr><th>Grade</th><th class="num">Hazard</th><th class="num">Inspeksi</th></tr></thead>
+                        <div class="form-label fw-semibold small mb-1">Target pelaporan menurut grade HRIS</div>
+                        <div class="table-responsive"><table class="table table-sm table-ssap mb-1">
+                            <thead><tr><th>Grade</th><th>Periode</th><th class="num">Hazard</th><th class="num">Inspeksi</th></tr></thead>
                             <tbody>
                             @foreach ($targets as $g => $t)
-                                <tr><td class="align-middle">Grade {{ $g }}</td>
-                                    <td><input type="number" min="0" max="50" name="target_hazard[{{ $g }}]" value="{{ old('target_hazard.'.$g, $t['hazard']) }}" class="form-control form-control-sm text-end" required></td>
-                                    <td><input type="number" min="0" max="50" name="target_inspection[{{ $g }}]" value="{{ old('target_inspection.'.$g, $t['inspection']) }}" class="form-control form-control-sm text-end" required></td></tr>
+                                <tr><td class="align-middle text-nowrap">Grade {{ $g }}<div class="small text-muted">{{ isset($gradeCounts[$g]) ? ($gradeCounts[$g]['category'] ? $gradeCounts[$g]['category'].' · ' : '').$gradeCounts[$g]['count'].' karyawan' : 'belum ada di HRIS' }}</div></td>
+                                    <td><select name="target_period[{{ $g }}]" class="form-select form-select-sm">@foreach (\App\Services\TargetStats::PERIODS as $k => $l)<option value="{{ $k }}" @selected(old('target_period.'.$g, $t['period']) === $k)>{{ $l }}</option>@endforeach</select></td>
+                                    <td><input type="number" min="0" max="50" name="target_hazard[{{ $g }}]" value="{{ old('target_hazard.'.$g, $t['hazard']) }}" class="form-control form-control-sm text-end" style="min-width:70px;" required></td>
+                                    <td><input type="number" min="0" max="50" name="target_inspection[{{ $g }}]" value="{{ old('target_inspection.'.$g, $t['inspection']) }}" class="form-control form-control-sm text-end" style="min-width:70px;" required></td></tr>
                             @endforeach
                             </tbody>
-                        </table>
-                        <div class="form-text">Grade 5 melihat capaian timnya; grade 6 ke atas melihat seluruh departemen. Hazard = laporan yang dibuat sendiri (temuan otomatis inspeksi tidak dihitung). Isi 0 bila tidak ada target.</div>
+                        </table></div>
+                        <div class="form-text">Contoh: grade 3, per minggu, hazard 2 = tiap karyawan grade 3 harus membuat 2 laporan hazard dalam seminggu (Senin-Minggu). Isi 0 dan 0 bila grade tidak punya target. Daftar grade diambil dari HRIS. Grade 5 melihat capaian timnya; grade 6 ke atas melihat seluruh departemen. Hazard = laporan yang dibuat sendiri (temuan otomatis inspeksi tidak dihitung).</div>
                         @error('target_hazard.*')<div class="text-danger small">{{ $message }}</div>@enderror
+                        @error('target_inspection.*')<div class="text-danger small">{{ $message }}</div>@enderror
+                        @error('target_period.*')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
                     <div class="mb-3" style="max-width:280px;">
                         <label class="form-label fw-semibold small mb-1" for="remind_days_before">Pengingat tindakan (hari sebelum tenggat)</label>
@@ -82,6 +85,19 @@
                 <span class="pill pill-{{ $hrisConfigured ? 'success' : 'warning' }}">{{ $hrisConfigured ? 'Dikonfigurasi' : 'Belum dikonfigurasi' }}</span></div>
             <div class="s-card-body small">
                 <p>Karyawan dibaca langsung dari HRIS lewat API baca-saja (<code>HRIS_API_URL</code>, <code>HRIS_API_TOKEN</code>), tanpa menyalin tabel karyawan. Dipakai untuk pencarian pelapor, PIC, investigator, dan korban. Disegarkan otomatis tiap jam.</p>
+                @if ($hrisOverview['total'])
+                    <div class="row g-2 mb-2 text-center">
+                        <div class="col-3"><div class="fw-bold fs-5">{{ number_format($hrisOverview['total'], 0, ',', '.') }}</div><div class="text-muted">Karyawan aktif</div></div>
+                        <div class="col-3"><div class="fw-bold fs-5">{{ count($hrisOverview['departments']) }}</div><div class="text-muted">Departemen</div></div>
+                        <div class="col-3"><div class="fw-bold fs-5">{{ count($hrisOverview['positions']) }}</div><div class="text-muted">Jabatan</div></div>
+                        <div class="col-3"><div class="fw-bold fs-5">{{ count($gradeCounts) }}</div><div class="text-muted">Grade</div></div>
+                    </div>
+                    <div class="mb-2">Grade terbaca: <strong>{{ $hrisOverview['with_grade'] }}</strong> karyawan &middot; atasan langsung terisi: <strong>{{ $hrisOverview['with_supervisor'] }}</strong>.@if (! $hrisOverview['with_grade']) <span class="text-danger">HRIS belum mengirim grade; pasang ulang HRIS versi terbaru.</span>@endif</div>
+                    <details class="mb-2"><summary class="text-primary" style="cursor:pointer;">Departemen &amp; jabatan dari HRIS</summary>
+                        <div class="mt-2"><strong>Departemen</strong><div class="d-flex flex-wrap gap-1 mt-1">@foreach (array_slice($hrisOverview['departments'], 0, 30, true) as $name => $n)<span class="pill pill-secondary">{{ $name }} ({{ $n }})</span>@endforeach</div></div>
+                        <div class="mt-2"><strong>Jabatan terbanyak</strong><div class="d-flex flex-wrap gap-1 mt-1">@foreach (array_slice($hrisOverview['positions'], 0, 20, true) as $name => $n)<span class="pill pill-secondary">{{ $name }} ({{ $n }})</span>@endforeach</div></div>
+                    </details>
+                @endif
                 <div class="text-muted mb-2">Sinkron terakhir: {{ $hrisSyncedAt ? \Illuminate\Support\Carbon::parse($hrisSyncedAt)->translatedFormat('d M Y H:i') : 'belum pernah' }}</div>
                 <div class="d-flex gap-2">
                     <form method="POST" action="{{ route('ssap.settings.test-hris') }}">@csrf<button class="btn btn-outline-primary btn-sm"><i class="bi bi-plug me-1"></i>Tes koneksi</button></form>

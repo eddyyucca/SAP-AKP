@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
-/** Tindakan korektif/pencegahan: ditetapkan HSE, dikerjakan PIC, diverifikasi HSE. */
+/** Tindakan korektif/pencegahan: ditetapkan HSE, dikerjakan PIC, diverifikasi dan ditutup oleh PELAPOR. */
 class ActionController extends Controller
 {
     use ManagesRecords;
@@ -32,22 +32,24 @@ class ActionController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
         ]);
 
-        // Pengguna biasa hanya melihat tindakan yang ditugaskan kepadanya.
-        $view = $canViewAll ? ($filters['view'] ?? 'all') : 'mine';
-        if ($view === 'verify' && ! Access::canManage()) {
-            $view = 'all';
-        }
+        // Pengguna biasa hanya melihat tindakan yang ditugaskan kepadanya, dan yang menunggu verifikasinya sebagai pelapor.
+        $view = $canViewAll ? ($filters['view'] ?? 'all') : (($filters['view'] ?? null) === 'verify' ? 'verify' : 'mine');
+
+        // Hazard yang saya laporkan: tindakan di dalamnya saya yang memverifikasi.
+        $mineHazards = Hazard::query()->where(fn ($q) => $q->where('created_by_id', (string) $user->id)
+            ->when(filled($user->employee_no), fn ($w) => $w->orWhere('reporter_nik', $user->employee_no)))->select('id');
+        $verifyScope = fn ($q) => Access::isAdmin() ? $q : $q->where('source_type', 'hazard')->whereIn('source_id', $mineHazards);
 
         $query = CorrectiveAction::query()->with('source:id,number,title')
             ->when($view === 'mine', fn ($q) => $q->where('pic_nik', $user->employee_no ?: '__none__'))
-            ->when($view === 'verify', fn ($q) => $q->where('status', 'done'))
+            ->when($view === 'verify', fn ($q) => $verifyScope($q->where('status', 'done')))
             ->when($view === 'overdue', fn ($q) => $q->overdue())
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['q'] ?? null, fn ($q, $term) => $q->where(fn ($w) => $w->where('description', 'like', "%{$term}%")->orWhere('pic_name', 'like', "%{$term}%")));
 
         $counts = [
             'mine' => CorrectiveAction::pending()->where('pic_nik', $user->employee_no ?: '__none__')->count(),
-            'verify' => Access::canManage() ? CorrectiveAction::where('status', 'done')->count() : 0,
+            'verify' => $verifyScope(CorrectiveAction::where('status', 'done'))->count(),
             'overdue' => $canViewAll ? CorrectiveAction::overdue()->count() : 0,
         ];
 
@@ -133,13 +135,13 @@ class ActionController extends Controller
             $this->notifier->actionDone($action->fresh('source'));
         }
 
-        return back()->with('success', $data['to'] === 'done' ? 'Tindakan ditandai selesai dan menunggu verifikasi HSE.' : 'Status tindakan diperbarui.');
+        return back()->with('success', $data['to'] === 'done' ? 'Tindakan ditandai selesai dan menunggu verifikasi pelapor.' : 'Status tindakan diperbarui.');
     }
 
-    /** HSE memverifikasi bukti: terima (selesai) atau kembalikan ke PIC. */
+    /** Pelapor memverifikasi bukti: terima (selesai) atau kembalikan ke PIC. */
     public function verify(Request $request, CorrectiveAction $action): RedirectResponse
     {
-        abort_unless(Access::canManage(), 403);
+        abort_unless(Access::canClose($action->source), 403, 'Hanya pelapor hazard ini yang dapat memverifikasi tindakan.');
         abort_unless($action->status === 'done', 403, 'Hanya tindakan yang menunggu verifikasi yang dapat diverifikasi.');
 
         $data = $request->validate([
@@ -163,7 +165,7 @@ class ActionController extends Controller
 
         // Hazard otomatis selesai bila seluruh tindakannya sudah terverifikasi.
         if ($accepted && $source && $source->isActive() && ! $source->actions()->whereIn('status', ['open', 'in_progress', 'done'])->exists()) {
-            $source->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => portal_user()->name, 'closure_note' => 'Seluruh tindakan telah dikerjakan dan diverifikasi.']);
+            $source->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => portal_user()->name, 'closure_note' => 'Seluruh tindakan telah dikerjakan dan diverifikasi pelapor.']);
             $source->log('closed', 'Ditutup otomatis: seluruh tindakan terverifikasi');
             $this->notifier->hazardClosed($source->fresh());
         }

@@ -41,12 +41,13 @@ return [
         'other' => 'Lainnya',
     ],
 
-    // Target pelaporan per bulan menurut grade HRIS (nilai awal; diubah admin di Pengaturan).
-    // hazard = laporan hazard yang dibuat sendiri (temuan otomatis dari inspeksi tidak dihitung); inspection = inspeksi rutin yang diisi.
+    // Target pelaporan menurut grade HRIS (nilai awal; diubah admin di Pengaturan, dan grade lain dari HRIS dapat ditambahkan di sana).
+    // period = week (per minggu, Senin-Minggu) atau month. hazard = laporan hazard yang dibuat sendiri (temuan otomatis dari inspeksi
+    // tidak dihitung); inspection = inspeksi rutin yang diisi. Isi 0 + 0 bila grade tidak punya target.
     'grade_targets' => [
-        3 => ['hazard' => 2, 'inspection' => 1],
-        4 => ['hazard' => 2, 'inspection' => 1],
-        5 => ['hazard' => 2, 'inspection' => 1],
+        3 => ['period' => 'week', 'hazard' => 2, 'inspection' => 0],
+        4 => ['period' => 'week', 'hazard' => 2, 'inspection' => 0],
+        5 => ['period' => 'week', 'hazard' => 2, 'inspection' => 0],
     ],
 
     'hazard_statuses' => [

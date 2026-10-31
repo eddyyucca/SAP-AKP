@@ -114,12 +114,16 @@ class SafetyFlowTest extends TestCase
         $this->as('user', ['employee_no' => '55', 'id' => 'p'])->put("/ssap/tindakan/{$action->id}/progres", ['to' => 'done', 'completion_note' => 'Kabel diganti', 'files' => [UploadedFile::fake()->image('bukti.jpg')]])->assertSessionHasNoErrors();
         $this->assertSame('done', $action->fresh()->status);
 
-        $this->as('hse')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'reject'])->assertSessionHasErrors('note');
-        $this->as('hse')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'reject', 'note' => 'Bukti kurang'])->assertSessionHasNoErrors();
+        // Yang memverifikasi adalah PELAPOR; HSE dan pengguna lain tidak boleh.
+        $this->as('hse')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'accept'])->assertForbidden();
+        $this->as('user', ['employee_no' => '999', 'id' => 'rnd'])->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'accept'])->assertForbidden();
+        $this->as('user')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'reject'])->assertSessionHasErrors('note');
+        $this->as('user')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'reject', 'note' => 'Bukti kurang'])->assertSessionHasNoErrors();
         $this->assertSame('in_progress', $action->fresh()->status);
 
         $this->as('user', ['employee_no' => '55', 'id' => 'p'])->put("/ssap/tindakan/{$action->id}/progres", ['to' => 'done', 'completion_note' => 'Foto bukti ditambahkan']);
-        $this->as('hse')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'accept'])->assertSessionHasNoErrors();
+        $this->as('user')->get('/ssap/tindakan?view=verify')->assertOk()->assertSee('Ganti kabel');
+        $this->as('user')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'accept'])->assertSessionHasNoErrors();
 
         $this->assertSame('verified', $action->fresh()->status);
         $this->assertSame('closed', $hazard->fresh()->status);
@@ -131,11 +135,23 @@ class SafetyFlowTest extends TestCase
         $this->as('user')->post('/ssap/hazard', $this->hazardPayload());
         $hazard = Hazard::firstOrFail();
 
-        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed'])->assertSessionHasErrors('note');
+        // Menutup = hak pelapor (HSE dan orang lain tidak boleh); HSE hanya boleh menolak.
+        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed', 'note' => 'x'])->assertForbidden();
+        $this->as('user', ['employee_no' => '999', 'id' => 'rnd'])->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed', 'note' => 'x'])->assertForbidden();
+        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed'])->assertSessionHasErrors('note');
+        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'rejected', 'note' => 'x'])->assertForbidden();
         $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'rejected'])->assertSessionHasErrors('note');
-        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed', 'note' => 'Sudah diperbaiki di lapangan'])->assertSessionHasNoErrors();
+        $this->as('user')->get('/ssap/hazard/'.$hazard->id)->assertOk()->assertSee('Penutupan oleh pelapor');
+        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed', 'note' => 'Sudah diperbaiki di lapangan'])->assertSessionHasNoErrors();
         $this->assertSame('closed', $hazard->fresh()->status);
-        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'open'])->assertForbidden();
+        $this->assertSame('Ditutup oleh pelapor: Sudah diperbaiki di lapangan', $hazard->logs()->where('event', 'closed')->value('note'));
+        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'open'])->assertForbidden();
+        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'open'])->assertSessionHasNoErrors();
+        $this->assertSame('open', $hazard->fresh()->status);
+
+        // HSE menolak laporan yang belum ditangani.
+        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'rejected', 'note' => 'Duplikat'])->assertSessionHasNoErrors();
+        $this->assertSame('rejected', $hazard->fresh()->status);
     }
 
     public function test_inspection_findings_become_hazards_and_the_score_ignores_na(): void

@@ -1,6 +1,6 @@
 {{--
     Tindakan korektif pada sebuah laporan.
-    $record (Hazard), $sourceType ('hazard'), $canManage, $closed (laporan sudah ditutup)
+    $record (Hazard), $sourceType ('hazard'), $canManage, $canClose (pelapor/administrator: memverifikasi), $closed (laporan sudah ditutup)
 --}}
 @php
     $myNik = $portalUser->employee_no;
@@ -73,7 +73,7 @@
                     @if (($mine || $canManage) && in_array($a->status, ['open', 'in_progress'], true))
                         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#prog{{ $a->id }}"><i class="bi bi-pencil-square me-1"></i>Perbarui progres</button>
                     @endif
-                    @if ($canManage && $a->status === 'done')
+                    @if ($canClose && $a->status === 'done')
                         <button class="btn btn-sm btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#ver{{ $a->id }}"><i class="bi bi-patch-check me-1"></i>Verifikasi</button>
                     @endif
                     @if ($canManage)
@@ -99,7 +99,7 @@
                     </div>
                 @endif
 
-                @if ($canManage && $a->status === 'done')
+                @if ($canClose && $a->status === 'done')
                     <div class="collapse mt-2" id="ver{{ $a->id }}">
                         <form method="POST" action="{{ route('ssap.actions.verify', $a) }}" class="person-row">
                             @csrf

@@ -1,7 +1,7 @@
 # SAP - Safety Accountability Program
 
 Modul AKPSatu PT Adhi Kartiko Pratama Tbk untuk **laporan hazard** dan **inspeksi rutin**, dengan fokus pada **akuntabilitas**:
-setiap temuan punya penanggung jawab (PIC), tenggat sesuai risikonya, bukti penyelesaian, dan verifikasi HSE.
+setiap temuan punya penanggung jawab (PIC), tenggat sesuai risikonya, bukti penyelesaian, dan verifikasi serta penutupan oleh pelapor sendiri.
 
 Stack: Laravel 12, PHP 8.3, MySQL/MariaDB, Bootstrap 5 (tema HRIS), Chart.js 4.4.3, login lewat AKPSatu (`akp/portal-sso`).
 Karyawan disinkronkan dari **HRIS** (API baca-saja) dan notifikasi dikirim lewat **AKP Mail**.
@@ -21,19 +21,23 @@ Kode modul di Portal tetap `ssap-safety`.
 | **Pengelolaan** | Template inspeksi, lokasi/site, penerima notifikasi, status & tes integrasi HRIS / AKP Mail. |
 | **Standar Pelaporan** | Matriks risiko, tenggat, alur, dan rumus indikator (dibaca dari `config/ssap.php`). |
 
-### Target bulanan & hierarki (HRIS)
+### Target per grade & hierarki (HRIS)
 
-SAP membaca **grade** dan **atasan langsung** setiap karyawan dari HRIS (`grade`, `supervisor_nik` pada `/api/integrations/employees`).
+SAP membaca dari HRIS: NIK, nama, **departemen, divisi, seksi, jabatan, grade, status kepegawaian**, dan **atasan langsung** (`supervisor_nik`).
+Ringkasan hasil sinkron (jumlah karyawan, departemen, jabatan, grade) tampil di **Pengaturan > Sinkron HRIS**.
 
-| Grade | Target bulanan | Yang dilihat |
-|---|---|---|
-| 3 dan 4 | hazard + inspeksi (diatur admin di **Pengaturan**) | hanya miliknya sendiri |
-| 5 | idem | dirinya dan seluruh bawahan (langsung maupun tidak langsung) |
-| 6 ke atas (kepala departemen) | tidak ada target | seluruh departemen dan targetnya |
+Target diatur admin di **Pengaturan**, per grade (daftar grade diambil dari HRIS): periode (**per minggu**, Senin-Minggu, atau per bulan), jumlah laporan hazard, dan jumlah inspeksi.
+Contoh: grade 3, per minggu, hazard 2 = tiap karyawan grade 3 membuat 2 laporan hazard seminggu. Nilai awal grade 3, 4, 5 = 2 hazard per minggu; isi 0 + 0 bila suatu grade tidak punya target.
 
-Menu **Target Saya / Tim / Departemen** menampilkan capaian, siapa yang belum memenuhi target, dan grafik per departemen. Admin, HSE, dan manajer melihat seluruh departemen.
-Hazard yang dihitung adalah laporan yang dibuat sendiri; temuan otomatis dari inspeksi tidak dihitung. Mulai tanggal 20, ringkasan harian HSE memuat jumlah karyawan yang belum mencapai target.
-Bila grade tidak terbaca dari HRIS, pengguna diperlakukan sebagai grade 3-4 (hanya miliknya sendiri). Data demo menyertakan hierarki rekaan di cache HRIS (hanya terbaca bila `HRIS_API_URL`/`HRIS_API_TOKEN` terisi).
+| Grade | Yang dilihat |
+|---|---|
+| 3 dan 4 | hanya miliknya sendiri |
+| 5 | dirinya dan seluruh bawahan (langsung maupun tidak langsung) |
+| 6 ke atas (kepala departemen) | seluruh departemen dan targetnya |
+
+Menu **Target Saya / Tim / Departemen** menampilkan capaian periode, siapa yang belum memenuhi target, dan grafik per departemen; admin, HSE, dan manajer melihat seluruh departemen.
+Hazard yang dihitung adalah laporan yang dibuat sendiri; temuan otomatis dari inspeksi tidak dihitung. Ringkasan harian HSE memuat jumlah karyawan yang belum mencapai target (mulai Kamis untuk target mingguan, tanggal 20 untuk bulanan).
+Bila grade tidak terbaca dari HRIS, pengguna diperlakukan seperti grade 3-4 (hanya miliknya sendiri). Data demo menyertakan hierarki rekaan di cache HRIS (hanya terbaca bila `HRIS_API_URL`/`HRIS_API_TOKEN` terisi).
 
 ### Definisi indikator
 

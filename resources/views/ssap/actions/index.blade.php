@@ -9,7 +9,7 @@
 @section('content')
 @if ($canViewAll)
     <ul class="nav nav-pills mb-3 gap-1">
-        @php($tabs = ['all' => ['Semua', null], 'mine' => ['Untuk saya', $counts['mine']], 'overdue' => ['Terlambat', $counts['overdue']]] + (\App\Support\Access::canManage() ? ['verify' => ['Menunggu verifikasi', $counts['verify']]] : []))
+        @php($tabs = ['all' => ['Semua', null], 'mine' => ['Untuk saya', $counts['mine']], 'overdue' => ['Terlambat', $counts['overdue']]] + ['verify' => [\App\Support\Access::isAdmin() ? 'Menunggu verifikasi' : 'Saya verifikasi', $counts['verify']]])
         @foreach ($tabs as $key => [$label, $count])
             <li class="nav-item"><a class="nav-link py-1 px-3 {{ $view === $key ? 'active' : '' }}" href="{{ route('ssap.actions.index', ['view' => $key]) }}">{{ $label }}@if ($count) <span class="badge text-bg-{{ $key === 'overdue' ? 'danger' : 'secondary' }} ms-1">{{ $count }}</span>@endif</a></li>
         @endforeach

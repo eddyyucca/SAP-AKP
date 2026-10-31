@@ -41,16 +41,17 @@ Route::middleware(['portal.role:admin,hse,manager,user', 'throttle:120,1'])->pre
     // Tindakan korektif: PIC memperbarui progres miliknya; penetapan dan verifikasi khusus HSE (di bawah).
     Route::get('tindakan', [ActionController::class, 'index'])->name('actions.index');
     Route::put('tindakan/{action}/progres', [ActionController::class, 'progress'])->whereNumber('action')->name('actions.progress');
+    // Verifikasi tindakan dan penutupan hazard dilakukan PELAPOR (administrator sebagai cadangan); dicek per laporan di controller.
+    Route::post('tindakan/{action}/verifikasi', [ActionController::class, 'verify'])->whereNumber('action')->name('actions.verify');
+    Route::post('hazard/{hazard}/status', [HazardController::class, 'resolve'])->whereNumber('hazard')->name('hazards.resolve');
 
     Route::get('lampiran/{attachment}', [AttachmentController::class, 'show'])->whereNumber('attachment')->name('attachments.show');
 
     // Petugas HSE & Administrator: menangani laporan.
     Route::middleware('portal.role:admin,hse')->group(function () {
         Route::post('hazard/{hazard}/tugaskan', [HazardController::class, 'assign'])->whereNumber('hazard')->name('hazards.assign');
-        Route::post('hazard/{hazard}/status', [HazardController::class, 'resolve'])->whereNumber('hazard')->name('hazards.resolve');
 
         Route::post('tindakan', [ActionController::class, 'store'])->name('actions.store');
-        Route::post('tindakan/{action}/verifikasi', [ActionController::class, 'verify'])->whereNumber('action')->name('actions.verify');
         Route::delete('tindakan/{action}', [ActionController::class, 'destroy'])->whereNumber('action')->name('actions.destroy');
         Route::delete('lampiran/{attachment}', [AttachmentController::class, 'destroy'])->whereNumber('attachment')->name('attachments.destroy');
 

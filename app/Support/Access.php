@@ -68,6 +68,24 @@ class Access
         return $scope;
     }
 
+    /** Pelapor hazard ini (akun yang membuatnya, atau NIK yang sama). */
+    public static function isReporter(?object $record, ?PortalUser $user = null): bool
+    {
+        $user ??= self::user();
+        if (! $record || ! $user) {
+            return false;
+        }
+
+        return (string) ($record->created_by_id ?? '') === (string) $user->id
+            || (filled($user->employee_no) && (string) ($record->reporter_nik ?? '') === (string) $user->employee_no);
+    }
+
+    /** Yang berhak memverifikasi tindakan dan menutup laporan: pelapor sendiri (administrator sebagai cadangan). */
+    public static function canClose(?object $record, ?PortalUser $user = null): bool
+    {
+        return self::isAdmin($user) || self::isReporter($record, $user);
+    }
+
     /** Admin/HSE/Manajer: melihat seluruh data dan dashboard keseluruhan. */
     public static function canViewAll(?PortalUser $user = null): bool
     {

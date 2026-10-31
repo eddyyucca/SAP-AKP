@@ -20,7 +20,7 @@
 <div class="row g-3 mb-3">
     <div class="col-6 col-lg-3"><x-kpi label="Tepat waktu (SLA)" :value="$p($kpi['sla_pct'])" icon="bi-stopwatch" :tone="$tone($kpi['sla_pct'])" sub="Hazard selesai sebelum tenggat" /></div>
     <div class="col-6 col-lg-3"><x-kpi label="Hazard terlambat" :value="$kpi['overdue_now']" icon="bi-alarm" :tone="$kpi['overdue_now'] ? 'danger' : 'success'" :sub="$kpi['unassigned'].' belum ada PIC'" :href="route('ssap.hazards.index', ['scope' => 'late'])" /></div>
-    <div class="col-6 col-lg-3"><x-kpi label="Tindakan terlambat" :value="$kpi['actions_overdue']" icon="bi-list-check" :tone="$kpi['actions_overdue'] ? 'danger' : 'success'" :sub="$kpi['actions_verify'].' menunggu verifikasi HSE'" :href="route('ssap.actions.index', ['view' => 'overdue'])" /></div>
+    <div class="col-6 col-lg-3"><x-kpi label="Tindakan terlambat" :value="$kpi['actions_overdue']" icon="bi-list-check" :tone="$kpi['actions_overdue'] ? 'danger' : 'success'" :sub="$kpi['actions_verify'].' menunggu verifikasi pelapor'" :href="route('ssap.actions.index', ['view' => 'overdue'])" /></div>
     <div class="col-6 col-lg-3"><x-kpi label="Kepatuhan inspeksi" :value="$p($ikpi['compliance'])" icon="bi-calendar-check" :tone="$tone($ikpi['compliance'], 90, 70)" :sub="$ikpi['count'].' dari target '.$n($ikpi['target'])" /></div>
 </div>
 

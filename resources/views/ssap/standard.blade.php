@@ -18,7 +18,7 @@
                     <li><strong>Dilaporkan</strong> oleh siapa saja (jenis TTA atau KTA, keterangan, dan foto). Tenggat awal {{ $slaDays }} hari.</li>
                     <li><strong>Ditugaskan</strong> HSE ke PIC beserta tindakan yang harus dikerjakan (status <em>Dalam perbaikan</em>).</li>
                     <li>PIC mengerjakan dan menandai selesai dengan <strong>bukti foto</strong>.</li>
-                    <li>HSE <strong>memverifikasi</strong> bukti (atau mengembalikan dengan alasan). Hazard otomatis <strong>Selesai</strong> bila semua tindakannya terverifikasi.</li>
+                    <li><strong>Pelapor memverifikasi</strong> bukti dan memastikan perbaikannya benar di lapangan (atau mengembalikan ke PIC dengan alasan). Hazard otomatis <strong>Selesai</strong> bila semua tindakannya terverifikasi; pelapor juga dapat menutup hazard dengan catatan hasil.</li>
                 </ol>
                 <div class="text-muted">Tepat waktu = hazard ditutup pada atau sebelum tanggal tenggat. Hazard terbuka yang lewat tenggat berstatus <em>terlambat</em>.</div>
             </div>
@@ -70,7 +70,7 @@
                     <dt>Rata-rata selesai</dt><dd>rata-rata hari sejak dilaporkan sampai ditutup.</dd>
                     <dt>Umur hazard</dt><dd>hari sejak dilaporkan untuk hazard yang masih terbuka (0-3, 4-7, 8-14, 15-30, &gt; 30 hari).</dd>
                     <dt>Papan PIC</dt><dd>ditugaskan, terbuka, terlambat, selesai, % tepat waktu per PIC dan per departemen.</dd>
-                    <dt>Pengingat</dt><dd>PIC menerima email pengingat tiap pagi sampai tindakan selesai; HSE menerima ringkasan harian.</dd>
+                    <dt>Pengingat</dt><dd>PIC menerima email pengingat tiap pagi sampai tindakan selesai; pelapor diminta memverifikasi saat tindakan selesai; HSE menerima ringkasan harian.</dd>
                 </dl>
             </div>
         </div>

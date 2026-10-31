@@ -53,7 +53,7 @@ class TargetTest extends TestCase
         $n++;
 
         return Hazard::create($over + [
-            'number' => 'HZD-T-'.$n, 'observed_at' => now()->startOfMonth()->addHours(2), 'location_id' => $this->site->id, 'category' => 'tta',
+            'number' => 'HZD-T-'.$n, 'observed_at' => now()->startOfWeek()->addHours(2), 'location_id' => $this->site->id, 'category' => 'tta',
             'description' => 'Keterangan uji '.$n, 'reporter_nik' => $nik, 'reporter_name' => 'U'.$nik, 'status' => 'open', 'created_by_id' => 'u'.$nik,
         ]);
     }
@@ -83,16 +83,17 @@ class TargetTest extends TestCase
 
     public function test_targets_count_own_reports_but_not_findings_created_by_inspections(): void
     {
+        Setting::put('target_period_3', 'week');
         Setting::put('target_hazard_3', '2');
         Setting::put('target_inspection_3', '1');
 
         $this->hazard('301');
         $auto = $this->hazard('301');
         $this->hazard('301', ['status' => 'rejected']);                              // ditolak: tidak dihitung
-        $this->hazard('301', ['observed_at' => now()->subMonths(2)]);              // bulan lain
+        $this->hazard('301', ['observed_at' => now()->subWeeks(2)]);               // minggu lain
 
         $inspection = Inspection::create([
-            'number' => 'INS-T-1', 'template_name' => 'Uji', 'category' => 'other', 'location_id' => $this->site->id, 'inspected_at' => now()->startOfMonth()->addHours(3),
+            'number' => 'INS-T-1', 'template_name' => 'Uji', 'category' => 'other', 'location_id' => $this->site->id, 'inspected_at' => now()->startOfWeek()->addHours(3),
             'inspector_nik' => '301', 'inspector_name' => 'U301', 'total_items' => 1, 'ok_count' => 0, 'nok_count' => 1, 'na_count' => 0, 'score' => 0,
         ]);
         InspectionItem::create(['inspection_id' => $inspection->id, 'position' => 1, 'question' => 'Q', 'result' => 'nok', 'note' => 'x', 'hazard_id' => $auto->id]);
@@ -114,24 +115,24 @@ class TargetTest extends TestCase
         $this->as('500')->get('/ssap/target')->assertOk()->assertSee('Target Tim')->assertSee('Anggota Tiga')->assertSee('Anggota Empat')->assertDontSee('Anggota Lain');
         $this->as('600')->get('/ssap/target')->assertOk()->assertSee('Target Departemen')->assertSee('Anggota Lain')->assertSee('Logistik')->assertSee('Produksi');
         $this->as('600')->get('/ssap/target?department=Logistik&only=behind')->assertOk()->assertSee('Anggota Lain')->assertDontSee('Anggota Tiga');
-        $this->as('600')->get('/ssap/target?month=2026-13')->assertSessionHasErrors('month');
+        $this->as('600')->get('/ssap/target?date=2026-13-40')->assertSessionHasErrors('date');
+        $this->as('600')->get('/ssap/target?date='.now()->subWeek()->toDateString())->assertOk()->assertSee('Anggota Lain');
     }
 
     public function test_the_head_sees_who_has_not_met_the_target(): void
     {
-        Setting::put('target_hazard_3', '1');
-        Setting::put('target_inspection_3', '0');
-        Setting::put('target_inspection_4', '0');
-        Setting::put('target_hazard_4', '1');
-        Setting::put('target_hazard_5', '0');
-        Setting::put('target_inspection_5', '0');
+        foreach ([3 => 1, 4 => 1, 5 => 0] as $g => $h) {
+            Setting::put("target_period_$g", 'week');
+            Setting::put("target_hazard_$g", (string) $h);
+            Setting::put("target_inspection_$g", '0');
+        }
         $this->hazard('301');   // 301 mencapai; 401 dan 302 belum
 
         $rows = collect(app(TargetStats::class)->rows(now()))->keyBy('nik');
         $this->assertTrue($rows['301']['achieved']);
         $this->assertFalse($rows['401']['achieved']);
         $this->assertFalse($rows['302']['achieved']);
-        $this->assertTrue($rows['500']['achieved']);      // target 0 = otomatis tercapai
+        $this->assertArrayNotHasKey('500', $rows->all());   // target 0 + 0 = tidak bertarget
         $this->assertSame('Atasan A', $rows['301']['supervisor_name']);
         $this->assertSame(['302', '401'], collect(app(TargetStats::class)->rows(now()))->where('achieved', false)->pluck('nik')->sort()->values()->all());
 
@@ -140,14 +141,54 @@ class TargetTest extends TestCase
         $this->assertSame(1, $depts['Produksi']['behind']);
     }
 
+    public function test_each_grade_can_use_a_weekly_or_monthly_period(): void
+    {
+        Setting::put('target_period_3', 'week');
+        Setting::put('target_hazard_3', '1');
+        Setting::put('target_period_4', 'month');
+        Setting::put('target_hazard_4', '1');
+        Setting::put('target_hazard_5', '0');
+
+        // Laporan 3 minggu lalu: di luar minggu ini, tetapi (kadang) masih dalam bulan ini.
+        $old = now()->subWeeks(3)->startOfWeek()->addHours(2);
+        $this->hazard('301', ['observed_at' => $old]);
+        $this->hazard('401', ['observed_at' => $old]);
+
+        $rows = collect(app(TargetStats::class)->rows(now()))->keyBy('nik');
+        $this->assertSame('week', $rows['301']['period']);
+        $this->assertSame(0, $rows['301']['hazard']);
+        $this->assertFalse($rows['301']['achieved']);
+        $this->assertSame('month', $rows['401']['period']);
+        $this->assertSame($old->isSameMonth(now()) ? 1 : 0, $rows['401']['hazard']);
+        $this->assertArrayNotHasKey('500', $rows->all());    // grade 5: target 0 + 0 = tidak bertarget
+
+        [$from, $to] = TargetStats::range('week', now());
+        $this->assertTrue($from->isMonday());
+        $this->assertTrue($to->isSunday());
+    }
+
+    public function test_grades_come_from_hris_and_the_settings_page_lists_them(): void
+    {
+        $this->assertSame([3, 4, 5, 6], TargetStats::grades());
+        $this->assertSame(['hazard' => 2, 'inspection' => 0, 'period' => 'week'], TargetStats::targets()[3]);   // contoh: grade 3, 2 per minggu
+
+        $this->loginPortal(['id' => 'adm', 'role' => 'admin', 'level' => 100, 'name' => 'Admin', 'employee_no' => '1', 'email' => 'a@test.test']);
+        $this->get('/ssap/pengaturan')->assertOk()->assertSee('Grade 6')->assertSee('per minggu')->assertSee('Produksi');
+    }
+
     public function test_admin_sets_targets_in_settings(): void
     {
         $this->loginPortal(['id' => 'adm', 'role' => 'admin', 'level' => 100, 'name' => 'Admin', 'employee_no' => '1', 'email' => 'a@test.test']);
 
-        $payload = ['remind_days_before' => 2, 'target_hazard' => [3 => 4, 4 => 5, 5 => 6], 'target_inspection' => [3 => 0, 4 => 1, 5 => 2]];
+        $payload = ['remind_days_before' => 2, 'target_period' => [3 => 'week', 4 => 'month', 5 => 'week', 6 => 'week'],
+            'target_hazard' => [3 => 4, 4 => 5, 5 => 6, 6 => 0], 'target_inspection' => [3 => 0, 4 => 1, 5 => 2, 6 => 0]];
         $this->put('/ssap/pengaturan', $payload)->assertSessionHasNoErrors();
 
-        $this->assertSame([3 => ['hazard' => 4, 'inspection' => 0], 4 => ['hazard' => 5, 'inspection' => 1], 5 => ['hazard' => 6, 'inspection' => 2]], TargetStats::targets());
-        $this->put('/ssap/pengaturan', ['target_hazard' => [3 => -1, 4 => 1, 5 => 1]] + $payload)->assertSessionHasErrors('target_hazard.*');
+        $this->assertSame([
+            3 => ['hazard' => 4, 'inspection' => 0, 'period' => 'week'], 4 => ['hazard' => 5, 'inspection' => 1, 'period' => 'month'],
+            5 => ['hazard' => 6, 'inspection' => 2, 'period' => 'week'], 6 => ['hazard' => 0, 'inspection' => 0, 'period' => 'week'],
+        ], TargetStats::targets());
+        $this->put('/ssap/pengaturan', ['target_period' => [3 => 'year']] + $payload)->assertSessionHasErrors('target_period.*');
+        $this->put('/ssap/pengaturan', ['target_hazard' => [3 => -1, 4 => 1, 5 => 1, 6 => 0]] + $payload)->assertSessionHasErrors('target_hazard.*');
     }
 }

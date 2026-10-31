@@ -92,6 +92,7 @@ class HazardController extends Controller
         return view('ssap.hazards.show', [
             'hazard' => $hazard,
             'canManage' => Access::canManage(),
+            'canClose' => Access::canClose($hazard),
             'canEdit' => $this->canEdit($hazard),
             'pendingActions' => $hazard->actions->whereIn('status', ['open', 'in_progress', 'done'])->count(),
         ]);
@@ -159,16 +160,16 @@ class HazardController extends Controller
         return back()->with('success', "Hazard ditugaskan kepada {$pic['name']}.");
     }
 
-    /** Tutup langsung (tanpa menunggu tindakan) atau tolak laporan. */
+    /** Pelapor menutup atau membuka kembali hazardnya (administrator cadangan); HSE/administrator dapat menolak laporan. */
     public function resolve(Request $request, Hazard $hazard): RedirectResponse
     {
-        abort_unless(Access::canManage(), 403);
-
         $data = $request->validate([
             'to' => ['required', Rule::in(['closed', 'rejected', 'open'])],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
         $note = $this->clean($data['note'] ?? null);
+
+        abort_unless($data['to'] === 'rejected' ? Access::canManage() : Access::canClose($hazard), 403, $data['to'] === 'rejected' ? '' : 'Hanya pelapor hazard ini yang dapat menutupnya.');
 
         switch ($data['to']) {
             case 'closed':
@@ -180,7 +181,7 @@ class HazardController extends Controller
                     throw ValidationException::withMessages(['note' => 'Tuliskan hasil penanganan sebagai catatan penutupan.']);
                 }
                 $hazard->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => portal_user()->name, 'closure_note' => $note, 'reject_reason' => null]);
-                $hazard->log('closed', $note);
+                $hazard->log('closed', 'Ditutup oleh pelapor: '.$note);
                 $this->notifier->hazardClosed($hazard->fresh());
                 break;
 
@@ -201,7 +202,7 @@ class HazardController extends Controller
                 break;
         }
 
-        return back()->with('success', 'Status hazard diperbarui.');
+        return back()->with('success', $data['to'] === 'closed' ? 'Hazard ditutup. Terima kasih sudah memastikan perbaikannya.' : 'Status hazard diperbarui.');
     }
 
     public function destroy(Hazard $hazard): RedirectResponse

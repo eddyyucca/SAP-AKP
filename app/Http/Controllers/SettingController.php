@@ -22,6 +22,8 @@ class SettingController extends Controller
             ],
             'notifyReporter' => Setting::value('notify_reporter') === '1',
             'targets' => \App\Services\TargetStats::targets(),
+            'gradeCounts' => $hris->gradeCounts(),
+            'hrisOverview' => $hris->overview(),
             'remindDays' => (int) Setting::value('remind_days_before', '2'),
             'hrisConfigured' => HrisEmployees::configured(),
             'hrisSyncedAt' => $hris->syncedAt(),
@@ -39,13 +41,16 @@ class SettingController extends Controller
             'notify_severe' => ['nullable', 'string', 'max:1000'],
             'notify_reporter' => ['nullable', 'boolean'],
             'remind_days_before' => ['required', 'integer', 'between:0,14'],
+            'target_period' => ['required', 'array'],
+            'target_period.*' => ['required', 'in:week,month'],
             'target_hazard' => ['required', 'array'],
             'target_hazard.*' => ['required', 'integer', 'between:0,50'],
             'target_inspection' => ['required', 'array'],
             'target_inspection.*' => ['required', 'integer', 'between:0,50'],
         ]);
 
-        foreach (\App\Services\TargetStats::GRADES as $g) {
+        foreach (\App\Services\TargetStats::grades() as $g) {
+            Setting::put("target_period_$g", $data['target_period'][$g] ?? 'week');
             Setting::put("target_hazard_$g", (string) ($data['target_hazard'][$g] ?? 0));
             Setting::put("target_inspection_$g", (string) ($data['target_inspection'][$g] ?? 0));
         }

@@ -71,19 +71,21 @@ class Notifier
     {
         $this->safely(function () use ($hazard) {
             $status = $hazard->statusMeta()['label'];
+            $closed = $hazard->status === 'closed';
+            // Ditutup pelapor: kabari PIC dan HSE. Ditolak HSE: kabari pelapor.
             $this->deliver(
-                [$hazard->reporter_email],
+                $closed ? array_merge([$hazard->pic_email], Setting::emails('notify_hse')) : [$hazard->reporter_email],
                 'Hazard '.$hazard->number.' '.mb_strtolower($status),
                 'Laporan hazard '.mb_strtolower($status),
-                $hazard->status === 'closed'
-                    ? 'Hazard yang Anda laporkan sudah ditangani dan ditutup. Terima kasih atas kepedulian Anda.'
+                $closed
+                    ? 'Pelapor sudah memastikan perbaikan dan menutup hazard berikut. Terima kasih atas penanganannya.'
                     : 'Laporan hazard Anda tidak dilanjutkan. Alasannya tertera di bawah.',
                 ['Nomor' => $hazard->number, 'Keterangan' => Str::limit($hazard->description, 200), 'Status' => $status, 'Catatan' => $hazard->closure_note ?: $hazard->reject_reason],
                 route('ssap.hazards.show', $hazard),
                 '#15803d',
                 'hazard',
                 $hazard->number,
-                'Yth. '.$hazard->reporter_name.',',
+                $closed ? null : 'Yth. '.$hazard->reporter_name.',',
             );
         });
     }
@@ -106,15 +108,15 @@ class Notifier
         });
     }
 
-    /** Tindakan ditandai selesai: minta HSE memverifikasi. */
+    /** Tindakan ditandai selesai: minta PELAPOR hazard memverifikasi (HSE ditembuskan). */
     public function actionDone(CorrectiveAction $action): void
     {
         $this->safely(function () use ($action) {
             $this->deliver(
-                Setting::emails('notify_hse'),
+                array_merge([$action->source?->reporter_email], Setting::emails('notify_hse')),
                 'Tindakan selesai, mohon diverifikasi: '.$this->sourceNumber($action),
-                'Tindakan menunggu verifikasi',
-                "{$action->pic_name} menandai tindakan berikut selesai. Mohon periksa buktinya lalu verifikasi.",
+                'Tindakan menunggu verifikasi Anda',
+                "{$action->pic_name} menandai tindakan berikut selesai. Pelapor yang memastikan perbaikannya sudah benar: mohon periksa di lapangan/buktinya lalu verifikasi di SAP.",
                 $this->actionRows($action) + ['Catatan penyelesaian' => $action->completion_note],
                 route('ssap.actions.index', ['view' => 'verify']),
                 '#203868',
@@ -131,8 +133,8 @@ class Notifier
                 [$action->pic_email],
                 ($accepted ? 'Tindakan terverifikasi: ' : 'Tindakan dikembalikan: ').$this->sourceNumber($action),
                 $accepted ? 'Tindakan terverifikasi' : 'Tindakan perlu diperbaiki',
-                $accepted ? 'Terima kasih, tindakan Anda sudah diverifikasi HSE.' : 'HSE mengembalikan tindakan ini untuk diperbaiki. Lihat catatan di bawah.',
-                $this->actionRows($action) + ['Catatan HSE' => $action->verification_note],
+                $accepted ? 'Terima kasih, tindakan Anda sudah diverifikasi pelapor.' : 'Pelapor mengembalikan tindakan ini untuk diperbaiki. Lihat catatan di bawah.',
+                $this->actionRows($action) + ['Catatan pelapor' => $action->verification_note],
                 route('ssap.actions.index', ['view' => 'mine']),
                 $accepted ? '#15803d' : '#ea580c',
                 'action',

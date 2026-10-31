@@ -54,15 +54,44 @@
         </div>
 
         @include('ssap._attachments', ['record' => $hazard, 'canManage' => $canManage])
-        @include('ssap._actions', ['record' => $hazard, 'sourceType' => 'hazard', 'canManage' => $canManage, 'closed' => $closed])
+        @include('ssap._actions', ['record' => $hazard, 'sourceType' => 'hazard', 'canManage' => $canManage, 'canClose' => $canClose, 'closed' => $closed])
     </div>
 
     <div class="col-12 col-xl-4">
-        @if ($canManage)
+        @if ($canClose)
+            <div class="s-card mb-3 no-print">
+                <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-patch-check"></i>Penutupan oleh pelapor</h3></div>
+                <div class="s-card-body">
+                    @if ($hazard->isActive())
+                        <p class="small text-muted mb-2">Pelapor yang memastikan perbaikan sudah benar-benar selesai di lapangan.
+                            @if ($pendingActions) Ada <strong>{{ $pendingActions }}</strong> tindakan yang belum terverifikasi; verifikasi tiap tindakan di bagian <a href="#tindakan">Tindakan korektif</a>, dan hazard otomatis ditutup setelah semuanya terverifikasi.
+                            @else Semua tindakan sudah terverifikasi atau belum ada tindakan; Anda dapat menutup hazard ini.@endif</p>
+                        @if ($pendingActions === 0)
+                            <form method="POST" action="{{ route('ssap.hazards.resolve', $hazard) }}">
+                                @csrf
+                                <input type="hidden" name="to" value="closed">
+                                <textarea name="note" rows="2" class="form-control form-control-sm mb-2 @error('note') is-invalid @enderror" maxlength="2000" placeholder="Hasil / kondisi setelah diperbaiki (wajib)" required>{{ old('note') }}</textarea>
+                                @error('note')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
+                                @error('to')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
+                                <button class="btn btn-success btn-sm w-100" onclick="return confirm('Tutup hazard ini? Pastikan perbaikan sudah selesai.')"><i class="bi bi-check2-circle me-1"></i>Tutup hazard</button>
+                            </form>
+                        @endif
+                    @else
+                        <form method="POST" action="{{ route('ssap.hazards.resolve', $hazard) }}">
+                            @csrf
+                            <input type="hidden" name="to" value="open">
+                            <input type="text" name="note" class="form-control form-control-sm mb-2" placeholder="Alasan membuka kembali">
+                            <button class="btn btn-outline-primary btn-sm w-100"><i class="bi bi-arrow-counterclockwise me-1"></i>Buka kembali</button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        @if ($canManage && $hazard->isActive())
             <div class="s-card mb-3 no-print">
                 <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-signpost-split"></i>Penanganan HSE</h3></div>
                 <div class="s-card-body">
-                    @if ($hazard->isActive())
                         @if (! $hazard->pic_name)
                             <form method="POST" action="{{ route('ssap.hazards.assign', $hazard) }}" data-emp-scope class="mb-3">
                                 @csrf
@@ -79,25 +108,14 @@
                                 </div>
                                 <button class="btn btn-primary btn-sm w-100 mt-2"><i class="bi bi-person-check me-1"></i>Tugaskan</button>
                             </form>
-                            <hr>
                         @endif
 
-                        <form method="POST" action="{{ route('ssap.hazards.resolve', $hazard) }}">
+                    @if ($hazard->status === 'open')
+                        <form method="POST" action="{{ route('ssap.hazards.resolve', $hazard) }}" class="{{ $hazard->pic_name ? '' : 'border-top pt-3 mt-1' }}">
                             @csrf
-                            <textarea name="note" rows="2" class="form-control form-control-sm mb-2 @error('note') is-invalid @enderror" maxlength="2000" placeholder="Catatan penutupan / alasan penolakan">{{ old('note') }}</textarea>
-                            @error('to')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
-                            <div class="d-grid gap-2">
-                                @if ($pendingActions === 0)<button name="to" value="closed" class="btn btn-success btn-sm" onclick="return confirm('Tutup hazard ini?')"><i class="bi bi-check2-circle me-1"></i>Tutup hazard</button>@endif
-                                @if ($hazard->status === 'open')<button name="to" value="rejected" class="btn btn-outline-danger btn-sm" onclick="return confirm('Tolak laporan ini?')"><i class="bi bi-x-circle me-1"></i>Tolak laporan</button>@endif
-                            </div>
-                            @if ($pendingActions)<div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Hazard otomatis ditutup bila semua tindakan sudah diverifikasi.</div>@endif
-                        </form>
-                    @else
-                        <form method="POST" action="{{ route('ssap.hazards.resolve', $hazard) }}">
-                            @csrf
-                            <input type="hidden" name="to" value="open">
-                            <input type="text" name="note" class="form-control form-control-sm mb-2" placeholder="Alasan membuka kembali">
-                            <button class="btn btn-outline-primary btn-sm w-100"><i class="bi bi-arrow-counterclockwise me-1"></i>Buka kembali</button>
+                            <input type="hidden" name="to" value="rejected">
+                            <textarea name="note" rows="2" class="form-control form-control-sm mb-2" maxlength="2000" placeholder="Alasan penolakan laporan (wajib)"></textarea>
+                            <button class="btn btn-outline-danger btn-sm w-100" onclick="return confirm('Tolak laporan ini?')"><i class="bi bi-x-circle me-1"></i>Tolak laporan</button>
                         </form>
                     @endif
                 </div>

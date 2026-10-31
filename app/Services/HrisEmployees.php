@@ -133,6 +133,51 @@ class HrisEmployees
         return $this->find($nik)['grade'] ?? null;
     }
 
+    /** Jumlah karyawan aktif per grade: [grade => ['count' => n, 'category' => 'SUPERVISOR']]. @return array<int, array{count:int,category:?string}> */
+    public function gradeCounts(): array
+    {
+        $out = [];
+        foreach ($this->all() as $row) {
+            if (($row['is_active'] ?? true) && isset($row['grade'])) {
+                $g = (int) $row['grade'];
+                $out[$g]['count'] = ($out[$g]['count'] ?? 0) + 1;
+                $out[$g]['category'] ??= $row['grade_category'] ?? null;
+            }
+        }
+        ksort($out);
+
+        return $out;
+    }
+
+    /**
+     * Ringkasan data HRIS yang dipakai SAP: karyawan aktif, per departemen, jabatan, divisi, dan grade.
+     *
+     * @return array{total:int,with_grade:int,with_supervisor:int,departments:array<string,int>,positions:array<string,int>,divisions:array<string,int>}
+     */
+    public function overview(): array
+    {
+        $o = ['total' => 0, 'with_grade' => 0, 'with_supervisor' => 0, 'departments' => [], 'positions' => [], 'divisions' => []];
+        foreach ($this->all() as $row) {
+            if (! ($row['is_active'] ?? true)) {
+                continue;
+            }
+            $o['total']++;
+            $o['with_grade'] += isset($row['grade']) ? 1 : 0;
+            $o['with_supervisor'] += filled($row['supervisor_nik'] ?? null) ? 1 : 0;
+            foreach (['departments' => 'department', 'positions' => 'position', 'divisions' => 'division'] as $key => $field) {
+                $name = $row[$field] ?? null;
+                if (filled($name)) {
+                    $o[$key][$name] = ($o[$key][$name] ?? 0) + 1;
+                }
+            }
+        }
+        foreach (['departments', 'positions', 'divisions'] as $key) {
+            arsort($o[$key]);
+        }
+
+        return $o;
+    }
+
     /**
      * NIK seluruh bawahan (langsung maupun tidak langsung) menurut atasan langsung di HRIS. Hanya karyawan aktif.
      *
@@ -197,7 +242,10 @@ class HrisEmployees
             'department' => $row['department'] ?? null,
             'division' => $row['division'] ?? null,
             'position' => $row['position'] ?? null,
+            'section' => $row['section'] ?? null,
+            'employment_status' => $row['employment_status'] ?? null,
             'grade' => isset($row['grade']) ? (int) $row['grade'] : null,
+            'grade_category' => $row['grade_category'] ?? null,
             'supervisor_nik' => filled($row['supervisor_nik'] ?? null) ? (string) $row['supervisor_nik'] : null,
             'email' => $row['email'] ?? null,
             'is_active' => (bool) ($row['is_active'] ?? true),

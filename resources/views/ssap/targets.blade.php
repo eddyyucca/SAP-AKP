@@ -4,7 +4,8 @@
     $mode = $scope['mode'];
     $title = $mode === 'self' ? 'Target Saya' : ($mode === 'team' ? 'Target Tim' : 'Target Departemen');
     $pctTone = fn ($v) => $v === null ? 'secondary' : ($v >= 100 ? 'success' : ($v >= 50 ? 'warning' : 'danger'));
-    $daysLeft = $month->isSameMonth(now()) ? (int) floor(now()->diffInDays(now()->endOfMonth())) : null;
+    $periodNames = \App\Services\TargetStats::PERIODS;
+    $daysLeft = collect($rows)->pluck('days_left')->filter(fn ($d) => $d !== null)->min();
 @endphp
 
 @section('title', $title)
@@ -15,8 +16,8 @@
 
 @section('content')
 <div class="alert alert-primary small mb-3">
-    <i class="bi bi-bullseye me-1"></i><strong>Target pelaporan bulanan</strong> berlaku untuk karyawan grade 3, 4, dan 5 (menurut HRIS):
-    @foreach ($targets as $g => $t)<span class="d-inline-block me-2">Grade {{ $g }}: <strong>{{ $t['hazard'] }}</strong> hazard + <strong>{{ $t['inspection'] }}</strong> inspeksi</span>@endforeach
+    <i class="bi bi-bullseye me-1"></i><strong>Target pelaporan</strong> berlaku untuk grade yang ditetapkan di Pengaturan (grade menurut HRIS):
+    @foreach ($targets as $g => $t)@if ($t['hazard'] + $t['inspection'] > 0)<span class="d-inline-block me-3">Grade {{ $g }}: <strong>{{ $t['hazard'] }}</strong> hazard{{ $t['inspection'] ? ' + '.$t['inspection'].' inspeksi' : '' }} {{ $periodNames[$t['period']] }}</span>@endif @endforeach
     <div class="mt-1 text-muted">
         {{ $mode === 'self' ? 'Anda melihat capaian Anda sendiri.' : ($mode === 'team' ? 'Anda melihat capaian Anda dan seluruh bawahan menurut atasan langsung di HRIS.' : 'Anda melihat capaian seluruh departemen.') }}
         Hazard dihitung dari laporan yang dibuat sendiri; temuan otomatis dari inspeksi tidak dihitung.
@@ -25,7 +26,7 @@
 
 <form method="GET" class="s-card p-3 mb-3 filter-bar">
     <div class="row g-2 align-items-end">
-        <div class="col-6 col-md-3 col-xl-2"><label class="form-label small mb-1">Bulan</label><input type="month" name="month" value="{{ $filters['month'] }}" max="{{ now()->format('Y-m') }}" class="form-control form-control-sm"></div>
+        <div class="col-6 col-md-3 col-xl-2"><label class="form-label small mb-1">Periode memuat tanggal</label><input type="date" name="date" value="{{ $filters['date'] }}" max="{{ now()->toDateString() }}" class="form-control form-control-sm"></div>
         @if ($mode === 'all')
             <div class="col-6 col-md-4 col-xl-3"><label class="form-label small mb-1">Departemen</label>
                 <select name="department" class="form-select form-select-sm"><option value="">Semua departemen</option>
@@ -38,7 +39,9 @@
         @endif
         <div class="col-12 col-md-auto d-flex gap-2">
             <button class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i>Terapkan</button>
-            <a href="{{ route('ssap.targets') }}" class="btn btn-outline-secondary btn-sm">Bulan ini</a>
+            <a href="{{ route('ssap.targets') }}" class="btn btn-outline-secondary btn-sm">Sekarang</a>
+            <a href="{{ route('ssap.targets', ['date' => now()->subWeek()->toDateString()] + array_filter(['department' => $filters['department'] ?? null])) }}" class="btn btn-outline-secondary btn-sm">Minggu lalu</a>
+            <a href="{{ route('ssap.targets', ['date' => now()->subMonthNoOverflow()->toDateString()] + array_filter(['department' => $filters['department'] ?? null])) }}" class="btn btn-outline-secondary btn-sm">Bulan lalu</a>
         </div>
     </div>
 </form>
@@ -47,8 +50,8 @@
     <div class="s-card mb-3">
         <div class="s-card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                <div><strong>Capaian saya</strong> <span class="text-muted small">Grade {{ $mine['grade'] }} &middot; {{ $month->translatedFormat('F Y') }}</span></div>
-                <span class="pill pill-{{ $mine['achieved'] ? 'success' : 'warning' }}">{{ $mine['achieved'] ? 'Target tercapai' : 'Belum tercapai' }}@if (! $mine['achieved'] && $daysLeft !== null) &middot; sisa {{ $daysLeft }} hari @endif</span>
+                <div><strong>Capaian saya</strong> <span class="text-muted small">Grade {{ $mine['grade'] }} &middot; {{ $periodNames[$mine['period']] }} &middot; {{ $mine['period_label'] }}</span></div>
+                <span class="pill pill-{{ $mine['achieved'] ? 'success' : 'warning' }}">{{ $mine['achieved'] ? 'Target tercapai' : 'Belum tercapai' }}@if (! $mine['achieved'] && $mine['days_left'] !== null) &middot; sisa {{ $mine['days_left'] }} hari @endif</span>
             </div>
             <div class="progress mb-2" style="height:10px;"><div class="progress-bar bg-{{ $pctTone($mine['pct']) }}" style="width:{{ $mine['pct'] }}%"></div></div>
             <div class="row g-2 small">
@@ -58,21 +61,21 @@
         </div>
     </div>
 @elseif ($mode === 'self')
-    <div class="alert alert-secondary small">Target bulanan berlaku untuk grade 3-5. Grade Anda di HRIS belum terbaca atau di luar rentang itu, jadi tidak ada target untuk Anda.</div>
+    <div class="alert alert-secondary small">Grade Anda di HRIS belum terbaca atau grade tersebut belum punya target di Pengaturan, jadi tidak ada target untuk Anda.</div>
 @endif
 
 @if ($mode !== 'self')
     <div class="row g-2 mb-3">
-        <div class="col-6 col-md-3"><x-kpi label="Karyawan bertarget" :value="$summary['members']" icon="bi-people" tone="primary" sub="Grade 3-5" /></div>
+        <div class="col-6 col-md-3"><x-kpi label="Karyawan bertarget" :value="$summary['members']" icon="bi-people" tone="primary" sub="Grade bertarget" /></div>
         <div class="col-6 col-md-3"><x-kpi label="Target tercapai" :value="$summary['achieved']" icon="bi-check2-circle" tone="success" :sub="($summary['pct'] ?? '-').'% dari karyawan'" /></div>
-        <div class="col-6 col-md-3"><x-kpi label="Belum tercapai" :value="$summary['behind']" icon="bi-hourglass-split" :tone="$summary['behind'] ? 'danger' : 'success'" :sub="$daysLeft !== null ? 'Sisa '.$daysLeft.' hari bulan ini' : $month->translatedFormat('F Y')" :href="route('ssap.targets', ['month' => $filters['month'], 'department' => $filters['department'], 'only' => 'behind'])" /></div>
+        <div class="col-6 col-md-3"><x-kpi label="Belum tercapai" :value="$summary['behind']" icon="bi-hourglass-split" :tone="$summary['behind'] ? 'danger' : 'success'" :sub="$daysLeft !== null ? 'Periode berakhir '.$daysLeft.' hari lagi' : 'Periode sudah lewat'" :href="route('ssap.targets', ['date' => $filters['date'], 'department' => $filters['department'], 'only' => 'behind'])" /></div>
         <div class="col-6 col-md-3"><x-kpi label="Capaian" :value="($summary['pct'] ?? '-').'%'" icon="bi-bullseye" :tone="$pctTone($summary['pct'])" sub="Karyawan yang mencapai target" /></div>
     </div>
 
     <div class="row g-3 mb-3">
         <div class="col-12 {{ $mode === 'all' && $departmentRows ? 'col-xl-7' : '' }}">
             <div class="s-card h-100">
-                <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-bar-chart"></i>{{ $charts['target']['by_department'] ? 'Capaian per departemen' : 'Capaian per anggota' }}</h3><span class="s-card-sub">% dari target bulan {{ $month->translatedFormat('F Y') }}</span></div>
+                <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-bar-chart"></i>{{ $charts['target']['by_department'] ? 'Capaian per departemen' : 'Capaian per anggota' }}</h3><span class="s-card-sub">% dari target periode (tanggal acuan {{ $ref->translatedFormat('d M Y') }})</span></div>
                 <div class="s-card-body"><div class="chart-box tall"><canvas id="cvTarget"></canvas></div></div>
             </div>
         </div>
@@ -83,7 +86,7 @@
                     <div class="table-responsive"><table class="table table-ssap mb-0">
                         <thead><tr><th>Departemen</th><th class="num">Karyawan</th><th class="num">Tercapai</th><th class="num">Belum</th><th class="num">%</th></tr></thead>
                         <tbody>@foreach ($departmentRows as $d)
-                            <tr class="row-link" data-href="{{ route('ssap.targets', ['month' => $filters['month'], 'department' => $d['name'] === 'Tanpa departemen' ? '' : $d['name']]) }}"><td class="fw-semibold">{{ $d['name'] }}</td><td class="num">{{ $d['members'] }}</td><td class="num">{{ $d['achieved'] }}</td><td class="num">{!! $d['behind'] ? '<span class="pill pill-danger">'.$d['behind'].'</span>' : '-' !!}</td><td class="num"><span class="pill pill-{{ $pctTone($d['pct']) }}">{{ $d['pct'] }}%</span></td></tr>
+                            <tr class="row-link" data-href="{{ route('ssap.targets', ['date' => $filters['date'], 'department' => $d['name'] === 'Tanpa departemen' ? '' : $d['name']]) }}"><td class="fw-semibold">{{ $d['name'] }}</td><td class="num">{{ $d['members'] }}</td><td class="num">{{ $d['achieved'] }}</td><td class="num">{!! $d['behind'] ? '<span class="pill pill-danger">'.$d['behind'].'</span>' : '-' !!}</td><td class="num"><span class="pill pill-{{ $pctTone($d['pct']) }}">{{ $d['pct'] }}%</span></td></tr>
                         @endforeach</tbody>
                     </table></div>
                 </div>
@@ -95,20 +98,21 @@
         <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-lines-fill"></i>{{ $filters['only'] === 'behind' ? 'Anggota yang belum mencapai target' : 'Capaian per anggota' }}</h3><span class="s-card-sub">{{ count($rows) }} orang</span></div>
         <div class="table-responsive">
             <table class="table table-ssap table-board mb-0">
-                <thead><tr><th>Karyawan</th><th>Departemen / atasan</th><th class="num">Grade</th><th class="num">Hazard</th><th class="num">Inspeksi</th><th class="num">Capaian</th><th>Status</th></tr></thead>
+                <thead><tr><th>Karyawan</th><th>Departemen / atasan</th><th class="num">Grade</th><th>Periode</th><th class="num">Hazard</th><th class="num">Inspeksi</th><th class="num">Capaian</th><th>Status</th></tr></thead>
                 <tbody>
                 @forelse ($rows as $r)
                     <tr>
                         <td><div class="fw-semibold">{{ $r['name'] }}</div><div class="small text-muted">{{ $r['nik'] }}{{ $r['position'] ? ' · '.$r['position'] : '' }}</div></td>
                         <td class="small">{{ $r['department'] ?? '-' }}<div class="text-muted">{{ $r['supervisor_name'] ? 'Atasan: '.$r['supervisor_name'] : '' }}</div></td>
                         <td class="num">{{ $r['grade'] }}</td>
+                        <td class="small text-nowrap">{{ $periodNames[$r['period']] }}<div class="text-muted">{{ $r['period_label'] }}</div></td>
                         <td class="num {{ $r['hazard'] < $r['target_hazard'] ? 'text-danger fw-semibold' : '' }}">{{ $r['hazard'] }} / {{ $r['target_hazard'] }}</td>
                         <td class="num {{ $r['inspection'] < $r['target_inspection'] ? 'text-danger fw-semibold' : '' }}">{{ $r['inspection'] }} / {{ $r['target_inspection'] }}</td>
                         <td class="num"><span class="pill pill-{{ $pctTone($r['pct']) }}">{{ $r['pct'] }}%</span></td>
                         <td><span class="pill pill-{{ $r['achieved'] ? 'success' : 'danger' }}">{{ $r['achieved'] ? 'Tercapai' : 'Belum' }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="7"><div class="empty-state py-4"><i class="bi bi-people"></i>{{ $summary['members'] ? 'Semua anggota sudah mencapai target.' : 'Tidak ada karyawan grade 3-5 yang dapat dilihat. Pastikan HRIS tersambung dan atasan langsung terisi.' }}</div></td></tr>
+                    <tr><td colspan="8"><div class="empty-state py-4"><i class="bi bi-people"></i>{{ $summary['members'] ? 'Semua anggota sudah mencapai target.' : 'Tidak ada karyawan bertarget yang dapat dilihat. Pastikan HRIS tersambung dan atasan langsung terisi.' }}</div></td></tr>
                 @endforelse
                 </tbody>
             </table>

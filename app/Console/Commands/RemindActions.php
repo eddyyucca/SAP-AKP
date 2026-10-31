@@ -38,8 +38,9 @@ class RemindActions extends Command
             return now()->day >= 15 && $done < ceil($t->target_per_month * now()->day / now()->daysInMonth);
         })->count();
 
-        // Target pelaporan bulanan: diingatkan sejak tanggal 20 agar masih sempat dipenuhi.
-        $targetBehind = now()->day >= 20 ? collect(app(\App\Services\TargetStats::class)->rows(now()))->where('achieved', false)->count() : 0;
+        // Target pelaporan: diingatkan menjelang akhir periode (Kamis untuk mingguan, tanggal 20 untuk bulanan) agar masih sempat dipenuhi.
+        $targetBehind = collect(app(\App\Services\TargetStats::class)->rows(now()))->where('achieved', false)
+            ->filter(fn ($r) => $r['period'] === 'week' ? now()->dayOfWeekIso >= 4 : now()->day >= 20)->count();
 
         $digest = [
             'Tindakan terlambat' => CorrectiveAction::overdue()->count(),
@@ -48,7 +49,7 @@ class RemindActions extends Command
             'Hazard belum ada PIC' => Hazard::where('status', 'open')->whereNull('pic_name')->count(),
             'Hazard melewati tenggat' => Hazard::open()->whereDate('due_date', '<', today())->count(),
             'Template inspeksi tertinggal dari target bulan ini' => $behind,
-            'Karyawan belum mencapai target pelaporan bulan ini' => $targetBehind,
+            'Karyawan belum mencapai target pelaporan periode ini' => $targetBehind,
         ];
 
         if (array_sum($digest) > 0) {

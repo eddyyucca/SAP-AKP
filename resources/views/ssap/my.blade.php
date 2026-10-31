@@ -30,10 +30,17 @@
     </div>
 </div>
 
+@if ($counts['to_verify'])
+    <div class="alert alert-warning d-flex align-items-center gap-2 py-2 small mb-3">
+        <i class="bi bi-patch-question-fill"></i>
+        <div><strong>{{ $counts['to_verify'] }} tindakan</strong> pada hazard yang Anda laporkan sudah dikerjakan PIC dan menunggu verifikasi Anda. <a href="{{ route('ssap.actions.index', ['view' => 'verify']) }}" class="fw-semibold">Periksa sekarang</a></div>
+    </div>
+@endif
+
 @if ($mine)
     <a href="{{ route('ssap.targets') }}" class="s-card d-block p-3 mb-3 text-decoration-none text-reset">
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong><i class="bi bi-bullseye me-1"></i>Target {{ now()->translatedFormat('F') }}</strong>
+            <strong><i class="bi bi-bullseye me-1"></i>Target {{ $mine['period'] === 'week' ? 'minggu ini' : 'bulan ini' }}</strong> <span class="small text-muted">{{ $mine['period_label'] }}</span>
             <span class="pill pill-{{ $mine['achieved'] ? 'success' : 'warning' }}">{{ $mine['achieved'] ? 'Tercapai' : 'Belum tercapai' }}</span>
         </div>
         <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-{{ $mine['pct'] >= 100 ? 'success' : ($mine['pct'] >= 50 ? 'warning' : 'danger') }}" style="width:{{ $mine['pct'] }}%"></div></div>

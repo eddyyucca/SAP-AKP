@@ -111,6 +111,7 @@ class DashboardController extends Controller
                 'hazards_open' => (clone $hazards)->open()->count(),
                 'inspections' => (clone $inspections)->whereMonth('inspected_at', now()->month)->whereYear('inspected_at', now()->year)->count(),
                 'actions' => (clone $myActions)->pending()->count(),
+                'to_verify' => CorrectiveAction::where('status', 'done')->where('source_type', 'hazard')->whereIn('source_id', (clone $hazards)->select('id'))->count(),
                 'overdue' => (clone $myActions)->overdue()->count(),
             ],
             'recentHazards' => (clone $hazards)->with('location:id,name')->latest('observed_at')->limit(6)->get(),

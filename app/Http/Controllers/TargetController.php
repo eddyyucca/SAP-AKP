@@ -13,15 +13,15 @@ class TargetController extends Controller
     public function index(Request $request, TargetStats $stats)
     {
         $data = $request->validate([
-            'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'date' => ['nullable', 'date_format:Y-m-d'],
             'department' => ['nullable', 'string', 'max:120'],
             'only' => ['nullable', 'in:behind'],
         ]);
 
-        $month = Carbon::createFromFormat('Y-m-d', ($data['month'] ?? now()->format('Y-m')).'-01')->startOfDay();
+        $ref = Carbon::createFromFormat('Y-m-d', $data['date'] ?? now()->toDateString())->startOfDay();
         $scope = Access::scope();
 
-        $rows = collect($stats->rows($month, $scope['mode'] === 'all' ? null : $scope['niks']));
+        $rows = collect($stats->rows($ref, $scope['mode'] === 'all' ? null : $scope['niks']));
         $departments = $rows->pluck('department')->filter()->unique()->sort()->values()->all();
         $mine = $rows->firstWhere('nik', $scope['nik']);
 
@@ -40,7 +40,7 @@ class TargetController extends Controller
         $showBehind = ($data['only'] ?? null) === 'behind';
 
         return view('ssap.targets', [
-            'month' => $month,
+            'ref' => $ref,
             'scope' => $scope,
             'targets' => TargetStats::targets(),
             'rows' => ($showBehind ? $view->where('achieved', false)->values() : $view)->all(),
@@ -48,7 +48,7 @@ class TargetController extends Controller
             'summary' => $summary,
             'departmentRows' => $scope['mode'] === 'all' ? $stats->byDepartment($view->all()) : [],
             'departments' => $departments,
-            'filters' => ['month' => $month->format('Y-m'), 'department' => $data['department'] ?? '', 'only' => $data['only'] ?? ''],
+            'filters' => ['date' => $ref->toDateString(), 'department' => $data['department'] ?? '', 'only' => $data['only'] ?? ''],
             'charts' => ['target' => $stats->chart($view->all(), $byDepartment)],
         ]);
     }
