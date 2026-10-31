@@ -65,11 +65,14 @@ class SafetyFlowTest extends TestCase
 
     public function test_a_reporter_files_a_hazard_and_sees_only_their_own(): void
     {
-        $res = $this->as('user')->post('/ssap/hazard', $this->hazardPayload() + ['files' => [UploadedFile::fake()->image('foto.jpg')]]);
+        // Departemen/jabatan pelapor hanya dari HRIS: isian dari browser diabaikan.
+        $res = $this->as('user')->post('/ssap/hazard', $this->hazardPayload(['reporter_department' => 'Palsu', 'reporter_position' => 'Direktur']) + ['files' => [UploadedFile::fake()->image('foto.jpg')]]);
 
         $hazard = Hazard::firstOrFail();
         $res->assertRedirect(route('ssap.hazards.show', $hazard));
         $this->assertMatchesRegularExpression('/^HZD-\d{4}-0001$/', $hazard->number);
+        $this->assertNull($hazard->reporter_department);
+        $this->assertNull($hazard->reporter_position);
         $this->assertSame('open', $hazard->status);
         $this->assertSame('kta', $hazard->category);
         $this->assertStringStartsWith('Kabel terkelupas', $hazard->title);   // ringkasan dari keterangan
@@ -99,59 +102,51 @@ class SafetyFlowTest extends TestCase
         $this->assertSame(0, Hazard::count());
     }
 
-    public function test_hazard_is_assigned_worked_verified_and_closes_automatically(): void
+    public function test_the_reporter_is_the_pic_and_closes_the_hazard_by_recording_the_fix(): void
     {
-        $this->as('user')->post('/ssap/hazard', $this->hazardPayload());
+        $this->as('user')->post('/ssap/hazard', $this->hazardPayload())->assertSessionHasNoErrors();
         $hazard = Hazard::firstOrFail();
 
-        $this->as('user')->post("/ssap/hazard/{$hazard->id}/tugaskan", ['pic_name' => 'Rudi', 'due_date' => now()->addDay()->toDateString(), 'action' => 'Ganti kabel', 'type' => 'immediate'])->assertForbidden();
-        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/tugaskan", ['pic_nik' => '55', 'pic_name' => 'Rudi', 'due_date' => now()->addDay()->toDateString(), 'action' => 'Ganti kabel', 'type' => 'immediate'])->assertSessionHasNoErrors();
+        // Pelapor otomatis menjadi PIC.
+        $this->assertSame('10004', $hazard->pic_nik);
+        $this->assertSame('User', $hazard->pic_name);
+        $this->assertSame('open', $hazard->status);
+
+        // Hanya pelapor yang mencatat perbaikan; HSE dan orang lain tidak (safety hanya memantau).
+        $fix = ['to' => 'closed', 'note' => 'Kabel diganti oleh tim maintenance'];
+        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", $fix)->assertForbidden();
+        $this->as('manager')->post("/ssap/hazard/{$hazard->id}/status", $fix)->assertForbidden();
+        $this->as('user', ['employee_no' => '999', 'id' => 'rnd'])->post("/ssap/hazard/{$hazard->id}/status", $fix)->assertForbidden();
+        $this->as('hse')->get('/ssap/hazard/'.$hazard->id)->assertOk()->assertDontSee('Selesai &amp; tutup', false);
+
+        // Perbaikan sedang berjalan, lalu selesai (catatan wajib, foto bukti ikut tersimpan).
+        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'in_progress'])->assertSessionHasNoErrors();
         $this->assertSame('in_progress', $hazard->fresh()->status);
-
-        $action = CorrectiveAction::firstOrFail();
-        $this->as('user', ['employee_no' => '999', 'id' => 'rnd'])->put("/ssap/tindakan/{$action->id}/progres", ['to' => 'done', 'completion_note' => 'x'])->assertForbidden();
-        $this->as('user', ['employee_no' => '55', 'id' => 'p'])->put("/ssap/tindakan/{$action->id}/progres", ['to' => 'done'])->assertSessionHasErrors('completion_note');
-        $this->as('user', ['employee_no' => '55', 'id' => 'p'])->put("/ssap/tindakan/{$action->id}/progres", ['to' => 'done', 'completion_note' => 'Kabel diganti', 'files' => [UploadedFile::fake()->image('bukti.jpg')]])->assertSessionHasNoErrors();
-        $this->assertSame('done', $action->fresh()->status);
-
-        // Yang memverifikasi adalah PELAPOR; HSE dan pengguna lain tidak boleh.
-        $this->as('hse')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'accept'])->assertForbidden();
-        $this->as('user', ['employee_no' => '999', 'id' => 'rnd'])->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'accept'])->assertForbidden();
-        $this->as('user')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'reject'])->assertSessionHasErrors('note');
-        $this->as('user')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'reject', 'note' => 'Bukti kurang'])->assertSessionHasNoErrors();
-        $this->assertSame('in_progress', $action->fresh()->status);
-
-        $this->as('user', ['employee_no' => '55', 'id' => 'p'])->put("/ssap/tindakan/{$action->id}/progres", ['to' => 'done', 'completion_note' => 'Foto bukti ditambahkan']);
-        $this->as('user')->get('/ssap/tindakan?view=verify')->assertOk()->assertSee('Ganti kabel');
-        $this->as('user')->post("/ssap/tindakan/{$action->id}/verifikasi", ['decision' => 'accept'])->assertSessionHasNoErrors();
-
-        $this->assertSame('verified', $action->fresh()->status);
-        $this->assertSame('closed', $hazard->fresh()->status);
-        $this->assertNotNull($hazard->fresh()->closed_at);
-    }
-
-    public function test_hse_can_close_or_reject_a_hazard_only_with_a_note(): void
-    {
-        $this->as('user')->post('/ssap/hazard', $this->hazardPayload());
-        $hazard = Hazard::firstOrFail();
-
-        // Menutup = hak pelapor (HSE dan orang lain tidak boleh); HSE hanya boleh menolak.
-        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed', 'note' => 'x'])->assertForbidden();
-        $this->as('user', ['employee_no' => '999', 'id' => 'rnd'])->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed', 'note' => 'x'])->assertForbidden();
         $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed'])->assertSessionHasErrors('note');
-        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'rejected', 'note' => 'x'])->assertForbidden();
-        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'rejected'])->assertSessionHasErrors('note');
-        $this->as('user')->get('/ssap/hazard/'.$hazard->id)->assertOk()->assertSee('Penutupan oleh pelapor');
-        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'closed', 'note' => 'Sudah diperbaiki di lapangan'])->assertSessionHasNoErrors();
-        $this->assertSame('closed', $hazard->fresh()->status);
-        $this->assertSame('Ditutup oleh pelapor: Sudah diperbaiki di lapangan', $hazard->logs()->where('event', 'closed')->value('note'));
+        $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", $fix + ['files' => [UploadedFile::fake()->image('bukti.jpg')]])->assertSessionHasNoErrors();
+
+        $hazard->refresh();
+        $this->assertSame('closed', $hazard->status);
+        $this->assertSame('Kabel diganti oleh tim maintenance', $hazard->closure_note);
+        $this->assertNotNull($hazard->closed_at);
+        $this->assertSame(1, $hazard->attachments()->count());
+        $this->as('hse')->get('/ssap/hazard/'.$hazard->id)->assertOk()->assertSee('Kabel diganti oleh tim maintenance');
+
+        // Perbaikan belum tuntas: pelapor membuka kembali; HSE tidak bisa.
         $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'open'])->assertForbidden();
         $this->as('user')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'open'])->assertSessionHasNoErrors();
         $this->assertSame('open', $hazard->fresh()->status);
+    }
 
-        // HSE menolak laporan yang belum ditangani.
-        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'rejected', 'note' => 'Duplikat'])->assertSessionHasNoErrors();
-        $this->assertSame('rejected', $hazard->fresh()->status);
+    public function test_the_assign_verify_and_reject_flows_are_gone(): void
+    {
+        $this->as('user')->post('/ssap/hazard', $this->hazardPayload());
+        $hazard = Hazard::firstOrFail();
+
+        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/tugaskan", ['pic_name' => 'Rudi'])->assertNotFound();
+        $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'rejected', 'note' => 'x'])->assertForbidden();
+        $this->as('hse')->get('/ssap/tindakan')->assertNotFound();
+        $this->as('hse')->get('/ssap/laporan/ekspor/actions')->assertNotFound();
     }
 
     public function test_inspection_findings_become_hazards_and_the_score_ignores_na(): void
@@ -216,7 +211,7 @@ class SafetyFlowTest extends TestCase
         $this->assertSame(50, $k['sla_pct']);          // 1 dari 2 selesai tepat waktu
         $this->assertSame(2, $k['open_now']);
         $this->assertSame(1, $k['overdue_now']);
-        $this->assertSame(1, $k['unassigned']);
+        $this->assertSame(1, $k['in_progress']);
         $this->assertSame(1, $k['kta_open_now']);
         $this->assertSame(1, $k['kta']);
         $this->assertSame(3, $k['tta']);
@@ -271,11 +266,12 @@ class SafetyFlowTest extends TestCase
     {
         $this->hazard(['pic_name' => 'Rudi', 'status' => 'in_progress', 'due_date' => now()->addDay()->toDateString()]);
         $hazard = Hazard::firstOrFail();
+        $this->assertSame('Pelapor', Hazard::create(['number' => 'HZD-PIC', 'observed_at' => now(), 'location_id' => $this->site->id, 'description' => 'x', 'reporter_name' => 'Pelapor', 'status' => 'open'])->pic_name);
 
-        foreach (['/ssap', '/ssap/hazard-dashboard', '/ssap/inspeksi-dashboard', '/ssap/akuntabilitas', '/ssap/laporan', '/ssap/laporan?preset=last_year', '/ssap/laporan/ringkasan-bulanan', '/ssap/standar', '/ssap/tindakan', '/ssap/hazard', '/ssap/hazard/'.$hazard->id, '/ssap/inspeksi', '/ssap/inspeksi/baru', '/ssap/inspeksi/baru?template=1'] as $url) {
+        foreach (['/ssap', '/ssap/hazard-dashboard', '/ssap/inspeksi-dashboard', '/ssap/akuntabilitas', '/ssap/laporan', '/ssap/laporan?preset=last_year', '/ssap/laporan/ringkasan-bulanan', '/ssap/standar', '/ssap/hazard', '/ssap/hazard/'.$hazard->id, '/ssap/inspeksi', '/ssap/inspeksi/baru', '/ssap/inspeksi/baru?template=1'] as $url) {
             $this->as('manager')->get($url)->assertOk();
         }
-        foreach (['/ssap/inspeksi-template', '/ssap/tindakan?view=verify'] as $url) {
+        foreach (['/ssap/inspeksi-template'] as $url) {
             $this->as('hse')->get($url)->assertOk();
         }
         foreach (['/ssap/lokasi', '/ssap/pengaturan'] as $url) {
@@ -299,7 +295,7 @@ class SafetyFlowTest extends TestCase
     {
         $this->hazard(['description' => '=HYPERLINK("http://x")', 'pic_name' => 'Rudi']);
 
-        foreach (['hazards' => 'HZD-TEST', 'inspections' => 'Nomor', 'findings' => 'Nomor inspeksi', 'actions' => 'Sumber'] as $dataset => $needle) {
+        foreach (['hazards' => 'HZD-TEST', 'inspections' => 'Nomor', 'findings' => 'Nomor inspeksi'] as $dataset => $needle) {
             $csv = $this->as('manager')->get("/ssap/laporan/ekspor/{$dataset}?preset=year")->assertOk()->streamedContent();
             $this->assertStringContainsString($needle, $csv, $dataset);
         }
@@ -356,7 +352,6 @@ class SafetyFlowTest extends TestCase
         Http::fake(['mail.test/*' => Http::response(['data' => ['id' => 'r1']], 202)]);
 
         $h = $this->hazard(['pic_name' => 'Rudi', 'pic_email' => 'rudi@test.test', 'status' => 'in_progress', 'due_date' => now()->subDay()->toDateString()]);
-        $h->actions()->create(['type' => 'corrective', 'description' => 'Perbaiki', 'pic_name' => 'Rudi', 'pic_email' => 'rudi@test.test', 'due_date' => now()->subDay()->toDateString(), 'status' => 'open']);
 
         $this->artisan('ssap:remind')->assertSuccessful();
 

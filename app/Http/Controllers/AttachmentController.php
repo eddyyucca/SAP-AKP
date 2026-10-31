@@ -28,7 +28,9 @@ class AttachmentController extends Controller
 
     public function destroy(Attachment $attachment): RedirectResponse
     {
-        abort_unless(Access::canManage(), 403);
+        // Lampiran hazard dihapus pelapor (atau administrator); lampiran inspeksi oleh admin/HSE.
+        $owner = $attachment->attachable;
+        abort_unless($owner instanceof \App\Models\Hazard ? Access::canClose($owner) : Access::canManage(), 403);
 
         $attachment->attachable?->log('attachment', 'Lampiran dihapus: '.$attachment->original_name);
         $attachment->delete();

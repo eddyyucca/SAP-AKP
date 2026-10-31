@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ManagesRecords;
-use App\Models\CorrectiveAction;
 use App\Models\Hazard;
 use App\Models\Location;
 use App\Services\HrisEmployees;
@@ -33,7 +32,7 @@ class HazardController extends Controller
             'location' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
-            'scope' => ['nullable', 'in:open,late,unassigned'],
+            'scope' => ['nullable', 'in:open,late'],
         ]);
 
         $query = Hazard::query()->visibleTo(portal_user())->with('location:id,name')
@@ -47,8 +46,7 @@ class HazardController extends Controller
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->where('observed_at', '>=', $v.' 00:00:00'))
             ->when($filters['to'] ?? null, fn ($q, $v) => $q->where('observed_at', '<=', $v.' 23:59:59'))
             ->when(($filters['scope'] ?? null) === 'open', fn ($q) => $q->open())
-            ->when(($filters['scope'] ?? null) === 'late', fn ($q) => $q->open()->whereDate('due_date', '<', today()))
-            ->when(($filters['scope'] ?? null) === 'unassigned', fn ($q) => $q->where('status', 'open')->whereNull('pic_name'));
+            ->when(($filters['scope'] ?? null) === 'late', fn ($q) => $q->open()->whereDate('due_date', '<', today()));
 
         return view('ssap.hazards.index', [
             'hazards' => $query->orderByDesc('observed_at')->orderByDesc('id')->paginate(20)->withQueryString(),
@@ -87,14 +85,12 @@ class HazardController extends Controller
     public function show(Hazard $hazard)
     {
         $this->authorizeView($hazard);
-        $hazard->load(['location', 'actions', 'attachments', 'logs']);
+        $hazard->load(['location', 'attachments', 'logs']);
 
         return view('ssap.hazards.show', [
             'hazard' => $hazard,
-            'canManage' => Access::canManage(),
             'canClose' => Access::canClose($hazard),
             'canEdit' => $this->canEdit($hazard),
-            'pendingActions' => $hazard->actions->whereIn('status', ['open', 'in_progress', 'done'])->count(),
         ]);
     }
 
@@ -118,91 +114,52 @@ class HazardController extends Controller
         return redirect()->route('ssap.hazards.show', $hazard)->with('success', 'Laporan diperbarui.');
     }
 
-    /** HSE menetapkan PIC dan tenggat; sekaligus membuat tindakan korektif agar progresnya terlacak. */
-    public function assign(Request $request, Hazard $hazard): RedirectResponse
-    {
-        abort_unless(Access::canManage(), 403);
-        abort_unless($hazard->isActive(), 403, 'Hazard ini sudah ditutup.');
-
-        $data = $request->validate($this->personRules('pic') + [
-            'due_date' => ['required', 'date', 'after_or_equal:today'],
-            'action' => ['required', 'string', 'max:3000'],
-            'type' => ['required', $this->inList('ssap.action_types')],
-        ]);
-
-        $pic = $this->resolvePerson($data['pic_nik'] ?? null, $data['pic_name'] ?? null, $data['pic_department'] ?? null, $data['pic_email'] ?? null);
-
-        if (blank($pic['name'])) {
-            throw ValidationException::withMessages(['pic_name' => 'Tentukan PIC yang menangani hazard ini.']);
-        }
-
-        DB::transaction(function () use ($hazard, $data, $pic, &$action) {
-            $hazard->update([
-                'pic_nik' => $pic['nik'], 'pic_name' => $pic['name'], 'pic_department' => $pic['department'], 'pic_email' => $pic['email'],
-                'due_date' => $data['due_date'], 'status' => 'in_progress',
-            ]);
-
-            $action = $hazard->actions()->create([
-                'type' => $data['type'], 'description' => trim($data['action']),
-                'pic_nik' => $pic['nik'], 'pic_name' => $pic['name'], 'pic_department' => $pic['department'], 'pic_email' => $pic['email'],
-                'due_date' => $data['due_date'], 'status' => 'open', 'created_by' => portal_user()->name,
-            ]);
-        });
-
-        $hazard->log('action_added', "PIC {$pic['name']} ditetapkan, tenggat ".\Carbon\Carbon::parse($data['due_date'])->translatedFormat('d F Y'));
-
-        $fresh = $hazard->fresh();
-        $this->notifier->hazardAssigned($fresh);
-        if ($action instanceof CorrectiveAction) {
-            $this->notifier->actionAssigned($action->load('source'));
-        }
-
-        return back()->with('success', "Hazard ditugaskan kepada {$pic['name']}.");
-    }
-
-    /** Pelapor menutup atau membuka kembali hazardnya (administrator cadangan); HSE/administrator dapat menolak laporan. */
+    /**
+     * Pelapor (= PIC) mencatat perkembangan perbaikan. Perbaikan itu sendiri dikerjakan secara manual
+     * di lapangan; sistem hanya mencatat. Mencatat tindakan perbaikan selesai = laporan ditutup. Safety hanya memantau.
+     *  in_progress : perbaikan sedang berjalan (catatan opsional)
+     *  closed      : perbaikan selesai (tindakan perbaikan wajib dicatat, foto bukti disarankan)
+     *  open        : buka kembali bila perbaikan ternyata belum tuntas
+     */
     public function resolve(Request $request, Hazard $hazard): RedirectResponse
     {
+        abort_unless(Access::canClose($hazard), 403, 'Hanya pelapor hazard ini yang dapat memperbarui tindakan perbaikannya.');
+
         $data = $request->validate([
-            'to' => ['required', Rule::in(['closed', 'rejected', 'open'])],
-            'note' => ['nullable', 'string', 'max:2000'],
-        ]);
+            'to' => ['required', Rule::in(['in_progress', 'closed', 'open'])],
+            'note' => ['nullable', 'string', 'max:3000'],
+        ] + $this->fileRules());
         $note = $this->clean($data['note'] ?? null);
 
-        abort_unless($data['to'] === 'rejected' ? Access::canManage() : Access::canClose($hazard), 403, $data['to'] === 'rejected' ? '' : 'Hanya pelapor hazard ini yang dapat menutupnya.');
-
         switch ($data['to']) {
+            case 'in_progress':
+                abort_unless($hazard->status === 'open', 403);
+                $hazard->update(['status' => 'in_progress']);
+                $files = $this->storeAttachments($hazard, 'hazard', $request);
+                $hazard->log('updated', 'Perbaikan sedang dikerjakan'.($note ? ': '.$note : '').($files ? " (+{$files} foto)" : ''));
+                $message = 'Status diperbarui: perbaikan sedang dikerjakan.';
+                break;
+
             case 'closed':
                 abort_unless($hazard->isActive(), 403);
-                if ($hazard->actions()->whereIn('status', ['open', 'in_progress', 'done'])->exists()) {
-                    throw ValidationException::withMessages(['to' => 'Masih ada tindakan yang belum terverifikasi. Selesaikan atau hapus dulu.']);
-                }
                 if (blank($note)) {
-                    throw ValidationException::withMessages(['note' => 'Tuliskan hasil penanganan sebagai catatan penutupan.']);
+                    throw ValidationException::withMessages(['note' => 'Tuliskan tindakan perbaikan yang sudah dilakukan.']);
                 }
                 $hazard->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => portal_user()->name, 'closure_note' => $note, 'reject_reason' => null]);
-                $hazard->log('closed', 'Ditutup oleh pelapor: '.$note);
+                $files = $this->storeAttachments($hazard, 'hazard', $request);
+                $hazard->log('closed', 'Tindakan perbaikan: '.$note.($files ? " (+{$files} foto)" : ''));
                 $this->notifier->hazardClosed($hazard->fresh());
+                $message = 'Tindakan perbaikan dicatat dan hazard ditutup. Terima kasih.';
                 break;
 
-            case 'rejected':
-                abort_unless($hazard->status === 'open', 403);
-                if (blank($note)) {
-                    throw ValidationException::withMessages(['note' => 'Alasan penolakan wajib diisi.']);
-                }
-                $hazard->update(['status' => 'rejected', 'reject_reason' => $note]);
-                $hazard->log('cancelled', 'Ditolak: '.$note);
-                $this->notifier->hazardClosed($hazard->fresh());
-                break;
-
-            case 'open':
+            default:   // open
                 abort_if($hazard->isActive(), 403);
-                $hazard->update(['status' => $hazard->pic_name ? 'in_progress' : 'open', 'closed_at' => null, 'closed_by' => null, 'closure_note' => null, 'reject_reason' => null]);
-                $hazard->log('reopened', $note ?: 'Dibuka kembali');
-                break;
+                $hazard->update(['status' => 'open', 'closed_at' => null, 'closed_by' => null, 'closure_note' => null, 'reject_reason' => null]);
+                $hazard->log('reopened', $note ?: 'Dibuka kembali oleh pelapor');
+                $message = 'Hazard dibuka kembali.';
         }
 
-        return back()->with('success', $data['to'] === 'closed' ? 'Hazard ditutup. Terima kasih sudah memastikan perbaikannya.' : 'Status hazard diperbarui.');
+        return back()->with('success', $message);
     }
 
     public function destroy(Hazard $hazard): RedirectResponse
@@ -216,18 +173,10 @@ class HazardController extends Controller
         return redirect()->route('ssap.hazards.index')->with('success', "Hazard {$number} dihapus.");
     }
 
-    /** Admin/HSE selama masih aktif; pelapor hanya selama belum ada PIC. */
+    /** Pelapor (atau administrator) selama laporan masih aktif. */
     private function canEdit(Hazard $hazard): bool
     {
-        if (! $hazard->isActive()) {
-            return false;
-        }
-
-        if (Access::canManage()) {
-            return true;
-        }
-
-        return $hazard->status === 'open' && blank($hazard->pic_name) && (string) $hazard->created_by_id === (string) portal_user()->id;
+        return $hazard->isActive() && Access::canClose($hazard);
     }
 
     private function formData(Hazard $hazard): array
@@ -249,8 +198,6 @@ class HazardController extends Controller
             'description' => ['required', 'string', 'min:5', 'max:5000'],
             'immediate_action' => ['nullable', 'string', 'max:3000'],
             'suggestion' => ['nullable', 'string', 'max:3000'],
-            'reporter_department' => ['nullable', 'string', 'max:120'],
-            'reporter_position' => ['nullable', 'string', 'max:120'],
         ] + $this->fileRules());
     }
 

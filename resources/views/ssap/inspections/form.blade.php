@@ -86,8 +86,12 @@
                         </div>
                         <div class="mb-2"><label class="form-label small mb-1" for="area_detail">Detail area</label><input type="text" name="area_detail" id="area_detail" value="{{ old('area_detail') }}" class="form-control form-control-sm" maxlength="160" placeholder="mis. Workshop Bay 2"></div>
                         <div class="mb-2"><label class="form-label small mb-1 req" for="inspected_at">Waktu inspeksi</label><input type="datetime-local" name="inspected_at" id="inspected_at" value="{{ old('inspected_at', now()->format('Y-m-d\TH:i')) }}" max="{{ now()->format('Y-m-d\TH:i') }}" class="form-control form-control-sm @error('inspected_at') is-invalid @enderror" required></div>
-                        <div><label class="form-label small mb-1" for="inspector_department">Departemen inspektor</label><input type="text" name="inspector_department" id="inspector_department" value="{{ old('inspector_department', $me['department'] ?? '') }}" class="form-control form-control-sm" maxlength="120"></div>
-                        <div class="small text-muted mt-2">Inspektor: <strong>{{ $me['name'] ?? $portalUser->name }}</strong></div>
+                        <dl class="def-list mb-0" style="grid-template-columns:90px 1fr;">
+                            <dt>Inspektor</dt><dd class="fw-semibold">{{ $me['name'] ?? $portalUser->name }}</dd>
+                            <dt>Departemen</dt><dd>{{ $me['department'] ?? '-' }}</dd>
+                            <dt>Jabatan</dt><dd>{{ $me['position'] ?? '-' }}</dd>
+                        </dl>
+                        <div class="form-text"><i class="bi bi-lock me-1"></i>Data inspektor diambil dari HRIS.</div>
                     </div>
                 </div>
                 <div class="d-grid gap-2">

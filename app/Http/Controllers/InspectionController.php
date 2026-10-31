@@ -98,7 +98,6 @@ class InspectionController extends Controller
             'area_detail' => ['nullable', 'string', 'max:160'],
             'inspected_at' => ['required', 'date', 'before_or_equal:now'],
             'notes' => ['nullable', 'string', 'max:3000'],
-            'inspector_department' => ['nullable', 'string', 'max:120'],
             'result' => ['required', 'array'],
             'result.*' => ['required', 'in:ok,nok,na'],
             'note' => ['nullable', 'array'],
@@ -123,7 +122,6 @@ class InspectionController extends Controller
             return back()->withInput()->withErrors($errors);
         }
 
-        $request->merge(['reporter_department' => $request->input('inspector_department')]);
         $inspector = $this->reporterSnapshot($request);
 
         $counts = ['ok' => 0, 'nok' => 0, 'na' => 0];

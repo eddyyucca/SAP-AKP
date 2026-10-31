@@ -14,8 +14,8 @@
             <div class="s-card-body">
                 <form method="POST" action="{{ route('ssap.settings.update') }}">
                     @csrf @method('PUT')
-                    <p class="small text-muted">Isi alamat email dipisah koma atau baris baru. Pelapor, investigator, dan PIC otomatis menerima email sesuai perannya (alamat diambil dari HRIS).</p>
-                    @foreach (['notify_hse' => ['Tim HSE', 'Menerima setiap hazard baru, penutupan hazard, dan ringkasan harian.'] ] as $key => [$label, $hint])
+                    <p class="small text-muted">Isi alamat email dipisah koma atau baris baru. Pelapor (yang juga PIC) otomatis menerima konfirmasi dan pengingat (alamat diambil dari HRIS).</p>
+                    @foreach (['notify_hse' => ['Tim HSE', 'Memantau: menerima kabar hazard baru, hazard selesai diperbaiki, dan ringkasan harian. Tidak ada tugas yang harus dikerjakan HSE.'] ] as $key => [$label, $hint])
                         <div class="mb-3">
                             <label class="form-label fw-semibold small mb-1" for="{{ $key }}">{{ $label }}</label>
                             <textarea name="{{ $key }}" id="{{ $key }}" rows="2" class="form-control form-control-sm @error($key) is-invalid @enderror" placeholder="nama@akp.co.id, ...">{{ old($key, $emails[$key]) }}</textarea>

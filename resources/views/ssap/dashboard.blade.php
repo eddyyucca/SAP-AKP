@@ -33,13 +33,12 @@
 @include('ssap._filter')
 
 {{-- Kondisi terkini --}}
-@if ($kpi['overdue_now'] || $kpi['unassigned'])
+@if ($kpi['overdue_now'])
     <div class="alert alert-danger d-flex align-items-start gap-2 py-2 small mb-3">
         <i class="bi bi-exclamation-triangle-fill mt-1"></i>
         <div>
             <strong>Perlu tindakan hari ini:</strong>
             @if ($kpi['overdue_now'])<a href="{{ route('ssap.hazards.index', ['scope' => 'late']) }}" class="text-danger fw-semibold">{{ $kpi['overdue_now'] }} hazard</a> melewati tenggat.@endif
-            @if ($kpi['unassigned'])<a href="{{ route('ssap.hazards.index', ['scope' => 'unassigned']) }}" class="text-danger fw-semibold">{{ $kpi['unassigned'] }} hazard</a> belum ada PIC.@endif
         </div>
     </div>
 @endif
@@ -48,12 +47,12 @@
 <div class="row g-2 mb-3">
     <div class="col-6 col-md-3"><x-kpi label="Hazard dilaporkan" :value="$kpi['hazards']" icon="bi-cone-striped" tone="info" :sub="'TTA '.$kpi['tta'].' · KTA '.$kpi['kta']" :href="route('ssap.hazards.index', ['from' => $year.'-01-01', 'to' => $year.'-12-31'])" /></div>
     <div class="col-6 col-md-3"><x-kpi label="Terbuka saat ini" :value="$kpi['open_now']" icon="bi-folder2-open" tone="warning" :sub="'TTA '.$kpi['tta_open_now'].' · KTA '.$kpi['kta_open_now']" :href="route('ssap.hazards.index', ['scope' => 'open'])" /></div>
-    <div class="col-6 col-md-3"><x-kpi label="Melewati tenggat" :value="$kpi['overdue_now']" icon="bi-alarm" :tone="$kpi['overdue_now'] ? 'danger' : 'success'" :sub="$kpi['unassigned'].' belum ada PIC'" :href="route('ssap.hazards.index', ['scope' => 'late'])" /></div>
+    <div class="col-6 col-md-3"><x-kpi label="Melewati tenggat" :value="$kpi['overdue_now']" icon="bi-alarm" :tone="$kpi['overdue_now'] ? 'danger' : 'success'" :sub="$kpi['in_progress'].' sedang diperbaiki'" :href="route('ssap.hazards.index', ['scope' => 'late'])" /></div>
     <div class="col-6 col-md-3"><x-kpi label="Penyelesaian" :value="$p($kpi['closure_pct'])" icon="bi-check2-circle" :tone="$tone($kpi['closure_pct'], 85, 65)" :sub="$kpi['closed'].' dari '.$kpi['hazards'].' selesai'" /></div>
     <div class="col-6 col-md-3"><x-kpi label="Tepat waktu (SLA)" :value="$p($kpi['sla_pct'])" icon="bi-stopwatch" :tone="$tone($kpi['sla_pct'], 85, 65)" sub="Selesai sebelum tenggat" /></div>
     <div class="col-6 col-md-3"><x-kpi label="Inspeksi" :value="$ikpi['count']" icon="bi-clipboard2-check" tone="primary" :sub="$p($ikpi['compliance']).' dari target'" :href="route('ssap.inspections.index')" /></div>
     <div class="col-6 col-md-3"><x-kpi label="Skor inspeksi" :value="$ikpi['avg_score'] === null ? '-' : $n($ikpi['avg_score'], 1).'%'" icon="bi-award" :tone="$band['color']" :sub="$ikpi['findings'].' temuan'" /></div>
-    <div class="col-6 col-md-3"><x-kpi label="Tindakan terlambat" :value="$kpi['actions_overdue']" icon="bi-list-check" :tone="$kpi['actions_overdue'] ? 'danger' : 'success'" :sub="$kpi['actions_verify'].' menunggu verifikasi'" :href="route('ssap.actions.index', ['view' => 'overdue'])" /></div>
+    <div class="col-6 col-md-3"><x-kpi label="Rata-rata selesai" :value="$kpi['avg_days'] !== null ? $n($kpi['avg_days'], 1).' hr' : '-'" icon="bi-hourglass-split" tone="primary" sub="Sejak dilaporkan sampai ditutup" /></div>
 </div>
 
 {{-- Grafik hazard --}}
@@ -87,8 +86,8 @@
     </div>
     <div class="col-12 col-xl-4">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-list-check"></i>Status tindakan korektif</h3></div>
-            <div class="s-card-body"><div class="chart-box"><canvas id="cvActions"></canvas></div></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-activity"></i>Status hazard</h3><span class="s-card-sub">Periode terpilih</span></div>
+            <div class="s-card-body"><div class="chart-box"><canvas id="cvStatus"></canvas></div></div>
         </div>
     </div>
 </div>
@@ -96,7 +95,7 @@
 <div class="row g-3 mb-3">
     <div class="col-12 col-xl-6">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Beban &amp; kinerja PIC</h3><a href="{{ route('ssap.accountability', ['year' => $year]) }}" class="small">Papan lengkap</a></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Kinerja pelapor (PIC)</h3><a href="{{ route('ssap.accountability', ['year' => $year]) }}" class="small">Papan lengkap</a></div>
             <div class="s-card-body"><div class="chart-box"><canvas id="cvPic"></canvas></div></div>
         </div>
     </div>
@@ -131,16 +130,16 @@
             <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-flag text-danger"></i>Hazard perlu perhatian</h3><a href="{{ route('ssap.hazards.index', ['scope' => 'late']) }}" class="small">Lihat semua</a></div>
             <div class="table-responsive">
                 <table class="table table-ssap mb-0">
-                    <thead><tr><th>Hazard</th><th>Jenis</th><th>PIC / tenggat</th></tr></thead>
+                    <thead><tr><th>Hazard</th><th>Jenis</th><th>Pelapor (PIC) / tenggat</th></tr></thead>
                     <tbody>
                     @forelse ($attention as $h)
                         <tr class="row-link" data-href="{{ route('ssap.hazards.show', $h) }}">
                             <td><div class="fw-semibold">{{ $h->number }}</div><div class="small text-muted">{{ \Illuminate\Support\Str::limit($h->description, 60) }}</div></td>
                             <td><x-cat :category="$h->category" /></td>
-                            <td class="small">{{ $h->pic_name ?? 'Belum ada PIC' }}<div class="{{ $h->isOverdue() ? 'text-danger fw-semibold' : 'text-muted' }}">{{ $h->due_date?->translatedFormat('d M Y') ?? '-' }}@if ($h->isOverdue()) &middot; {{ $h->due_date->diffInDays(today()) }} hari lewat @endif</div></td>
+                            <td class="small">{{ $h->pic_name ?? $h->reporter_name }}<div class="{{ $h->isOverdue() ? 'text-danger fw-semibold' : 'text-muted' }}">{{ $h->due_date?->translatedFormat('d M Y') ?? '-' }}@if ($h->isOverdue()) &middot; {{ $h->due_date->diffInDays(today()) }} hari lewat @endif</div></td>
                         </tr>
                     @empty
-                        <tr><td colspan="3"><div class="empty-state py-4"><i class="bi bi-shield-check"></i>Tidak ada hazard yang terlambat atau tanpa PIC.</div></td></tr>
+                        <tr><td colspan="3"><div class="empty-state py-4"><i class="bi bi-shield-check"></i>Tidak ada hazard yang melewati tenggat.</div></td></tr>
                     @endforelse
                     </tbody>
                 </table>
@@ -149,7 +148,7 @@
     </div>
     <div class="col-12 col-xl-6">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Akuntabilitas PIC</h3><a href="{{ route('ssap.accountability', ['year' => $year]) }}" class="small">Papan lengkap</a></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Papan pelapor (PIC)</h3><a href="{{ route('ssap.accountability', ['year' => $year]) }}" class="small">Papan lengkap</a></div>
             @include('ssap._board', ['rows' => $board, 'withDept' => true])
         </div>
     </div>
@@ -196,6 +195,6 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{{ asset('assets/js/ssap-charts.js') }}?v=7"></script>
+<script src="{{ asset('assets/js/ssap-charts.js') }}?v=8"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { window.SSAPCharts && window.SSAPCharts(@json($charts)); });</script>
 @endpush

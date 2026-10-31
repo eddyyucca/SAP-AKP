@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\CorrectiveAction;
 use App\Models\Hazard;
 use App\Models\Location;
 use Carbon\CarbonInterface;
@@ -97,7 +96,6 @@ class SafetyStats
         $h = $this->hazards();
         $closed = $h->where('status', 'closed');
         $timed = $closed->filter(fn ($x) => self::onTime($x) !== null);
-        $actions = $this->actionsQuery()->get(['id', 'status', 'due_date']);
         $openAll = $this->openHazards();
 
         return [
@@ -106,7 +104,7 @@ class SafetyStats
             'closed' => $closed->count(),
             'closure_pct' => self::pct($closed->count(), $h->count()),
             'overdue' => $h->filter(fn ($x) => self::isLate($x))->count(),
-            'unassigned' => $h->where('status', 'open')->whereNull('pic_name')->count(),
+            'in_progress' => $h->where('status', 'in_progress')->count(),
             'sla_pct' => self::pct($timed->filter(fn ($x) => self::onTime($x))->count(), $timed->count()),
             'avg_days' => $closed->filter(fn ($x) => $x->closed_at)->isEmpty() ? null : round($closed->filter(fn ($x) => $x->closed_at)->avg(fn ($x) => self::daysToClose($x)), 1),
             'tta' => $h->where('category', 'tta')->count(),
@@ -118,11 +116,6 @@ class SafetyStats
             'overdue_now' => $openAll->filter(fn ($x) => self::isLate($x))->count(),
             'oldest_open_days' => $openAll->isEmpty() ? null : (int) $openAll->max(fn ($x) => $x->created_at->copy()->startOfDay()->diffInDays(today())),
 
-            'actions' => $actions->count(),
-            'actions_pending' => $actions->whereIn('status', ['open', 'in_progress', 'done'])->count(),
-            'actions_verify' => $actions->where('status', 'done')->count(),
-            'actions_overdue' => $actions->filter(fn ($a) => in_array($a->status, ['open', 'in_progress'], true) && $a->due_date->lt(today()))->count(),
-            'actions_done_pct' => self::pct($actions->where('status', 'verified')->count(), $actions->count()),
         ];
     }
 
@@ -277,24 +270,22 @@ class SafetyStats
         ])->sortByDesc('total')->take($limit)->values()->all();
     }
 
-    /** Status tindakan korektif untuk hazard dalam periode. */
-    public function actionStatus(): array
+    /** Sebaran status hazard dalam periode (batang): dilaporkan, diperbaiki, selesai tepat waktu, selesai terlambat, terlambat (terbuka). */
+    public function statusChart(): array
     {
-        $actions = $this->actionsQuery()->get(['status', 'due_date']);
-        $overdue = $actions->filter(fn ($a) => in_array($a->status, ['open', 'in_progress'], true) && $a->due_date->lt(today()))->count();
-        $palette = ['open' => '#94a3b8', 'in_progress' => '#f59e0b', 'done' => '#3b82f6', 'verified' => '#16a34a'];
-        $labels = $data = $colors = [];
+        $h = $this->hazards();
+        $late = $h->filter(fn ($x) => self::isLate($x))->count();
+        $closed = $h->where('status', 'closed');
 
-        foreach (config('ssap.action_statuses') as $key => $meta) {
-            $labels[] = $meta['label'];
-            $data[] = $actions->where('status', $key)->count();
-            $colors[] = $palette[$key];
-        }
-        $labels[] = 'Terlambat';
-        $data[] = $overdue;
-        $colors[] = '#dc2626';
+        $rows = [
+            ['Dilaporkan', $h->where('status', 'open')->count() - $h->where('status', 'open')->filter(fn ($x) => self::isLate($x))->count(), '#94a3b8'],
+            ['Dalam perbaikan', $h->where('status', 'in_progress')->count() - $h->where('status', 'in_progress')->filter(fn ($x) => self::isLate($x))->count(), '#f59e0b'],
+            ['Terlambat (belum selesai)', $late, '#dc2626'],
+            ['Selesai tepat waktu', $closed->filter(fn ($x) => self::onTime($x) === true)->count(), '#16a34a'],
+            ['Selesai terlambat', $closed->filter(fn ($x) => self::onTime($x) === false)->count(), '#0ea5e9'],
+        ];
 
-        return compact('labels', 'data', 'colors');
+        return ['labels' => array_column($rows, 0), 'data' => array_column($rows, 1), 'colors' => array_column($rows, 2)];
     }
 
     /** Hazard terbuka dengan tenggat paling dekat. */
@@ -305,21 +296,13 @@ class SafetyStats
             ->orderBy('due_date')->orderBy('id')->limit($limit)->get();
     }
 
-    /** Hazard yang butuh perhatian segera: melewati tenggat, atau belum ada PIC. */
+    /** Hazard yang butuh perhatian segera: melewati tenggat. */
     public function attention(int $limit = 8): Collection
     {
         return Hazard::query()->with('location:id,name')->open()
             ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->where(fn ($q) => $q->whereDate('due_date', '<', today())->orWhereNull('pic_name'))
+            ->whereDate('due_date', '<', today())
             ->orderBy('due_date')->orderBy('id')->limit($limit)->get();
-    }
-
-    /** Kueri tindakan korektif untuk hazard yang ditemukan dalam periode. */
-    public function actionsQuery()
-    {
-        $ids = $this->hazards()->pluck('id')->all();
-
-        return CorrectiveAction::query()->where('source_type', 'hazard')->whereIn('source_id', $ids ?: [0]);
     }
 
     /** Rekap jenis hazard (TTA/KTA) x status (untuk tabel laporan). @return list<array<string,mixed>> */
@@ -359,7 +342,7 @@ class SafetyStats
             'pic' => $this->picChart(),
             'location' => $this->byLocation(),
             'department' => $this->byDepartment(),
-            'actions' => $this->actionStatus(),
+            'status' => $this->statusChart(),
         ];
     }
 }

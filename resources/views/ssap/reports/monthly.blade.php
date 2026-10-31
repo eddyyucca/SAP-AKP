@@ -47,7 +47,7 @@
         @foreach ([['Dilaporkan', $kpi['hazards']], ['Selesai', $kpi['closed']], ['Penyelesaian', $p($kpi['closure_pct'])], ['Tepat waktu', $p($kpi['sla_pct'])], ['TTA', $kpi['tta']], ['KTA', $kpi['kta']], ['Rata-rata hari', $n($kpi['avg_days'], 1)]] as [$l, $v])
             <div class="col-4 col-md-2"><div class="k"><b>{{ $v }}</b><span>{{ $l }}</span></div></div>
         @endforeach
-        @foreach ([['Terbuka kini', $kpi['open_now']], ['Terlambat kini', $kpi['overdue_now']], ['Belum ada PIC', $kpi['unassigned']], ['Tindakan telat', $kpi['actions_overdue']], ['Menunggu verifikasi', $kpi['actions_verify']], ['Hazard tertua (hr)', $kpi['oldest_open_days'] ?? '-']] as [$l, $v])
+        @foreach ([['Terbuka kini', $kpi['open_now']], ['Terlambat kini', $kpi['overdue_now']], ['Sedang diperbaiki', $kpi['in_progress']], ['Hazard tertua (hr)', $kpi['oldest_open_days'] ?? '-']] as [$l, $v])
             <div class="col-4 col-md-2"><div class="k"><b>{{ $v }}</b><span>{{ $l }}</span></div></div>
         @endforeach
     </div>
@@ -97,24 +97,24 @@
         </div>
     @endif
 
-    <h2>Akuntabilitas PIC (bulan ini)</h2>
+    <h2>Kinerja pelapor / PIC (bulan ini)</h2>
     <table class="table table-sm table-bordered mb-0">
-        <thead class="table-light"><tr><th>PIC</th><th>Departemen</th><th class="text-end">Ditugaskan</th><th class="text-end">Terbuka</th><th class="text-end">Terlambat</th><th class="text-end">Selesai</th><th class="text-end">Tepat waktu</th></tr></thead>
+        <thead class="table-light"><tr><th>Pelapor (PIC)</th><th>Departemen</th><th class="text-end">Hazard</th><th class="text-end">Terbuka</th><th class="text-end">Terlambat</th><th class="text-end">Selesai</th><th class="text-end">Tepat waktu</th></tr></thead>
         <tbody>@forelse ($picBoard as $r)<tr><td>{{ $r['name'] }}</td><td>{{ $r['dept'] }}</td><td class="text-end">{{ $r['assigned'] }}</td><td class="text-end">{{ $r['open'] }}</td><td class="text-end">{{ $r['overdue'] }}</td><td class="text-end">{{ $r['closed'] }}</td><td class="text-end">{{ $p($r['sla_pct']) }}</td></tr>
         @empty<tr><td colspan="7" class="text-center text-muted">Tidak ada data.</td></tr>@endforelse</tbody>
     </table>
 
     <h2>Hazard terbuka (tenggat terdekat)</h2>
     <table class="table table-sm table-bordered mb-0">
-        <thead class="table-light"><tr><th>Nomor</th><th>Keterangan</th><th>Jenis</th><th>Lokasi</th><th>PIC</th><th>Tenggat</th></tr></thead>
+        <thead class="table-light"><tr><th>Nomor</th><th>Keterangan</th><th>Jenis</th><th>Lokasi</th><th>Pelapor (PIC)</th><th>Tenggat</th></tr></thead>
         <tbody>@forelse ($openList as $h)<tr><td>{{ $h->number }}</td><td>{{ \Illuminate\Support\Str::limit($h->description, 60) }}</td><td>{{ strtoupper($h->category) }}</td><td>{{ $h->location?->name }}</td><td>{{ $h->pic_name ?? '-' }}</td><td>{{ $h->due_date?->format('d/m/Y') }}</td></tr>
         @empty<tr><td colspan="6" class="text-center text-muted">Tidak ada.</td></tr>@endforelse</tbody>
     </table>
 
-    <h2>Tindakan korektif terlambat</h2>
+    <h2>Hazard melewati tenggat</h2>
     <table class="table table-sm table-bordered mb-0">
-        <thead class="table-light"><tr><th>Sumber</th><th>Tindakan</th><th>PIC</th><th>Tenggat</th></tr></thead>
-        <tbody>@forelse ($overdue as $a)<tr><td>{{ $a->source?->number }}</td><td>{{ \Illuminate\Support\Str::limit($a->description, 70) }}</td><td>{{ $a->pic_name }}</td><td>{{ $a->due_date->format('d/m/Y') }} ({{ $a->due_date->diffInDays(today()) }} hari)</td></tr>
+        <thead class="table-light"><tr><th>Nomor</th><th>Keterangan</th><th>Pelapor (PIC)</th><th>Tenggat</th></tr></thead>
+        <tbody>@forelse ($overdue as $h)<tr><td>{{ $h->number }}</td><td>{{ \Illuminate\Support\Str::limit($h->description, 70) }}</td><td>{{ $h->pic_name }}</td><td>{{ $h->due_date->format('d/m/Y') }} ({{ $h->due_date->diffInDays(today()) }} hari)</td></tr>
         @empty<tr><td colspan="4" class="text-center text-muted">Tidak ada.</td></tr>@endforelse</tbody>
     </table>
 
@@ -127,7 +127,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{{ asset('assets/js/ssap-charts.js') }}?v=7"></script>
+<script src="{{ asset('assets/js/ssap-charts.js') }}?v=8"></script>
 <script>window.addEventListener('load', function () { window.SSAPCharts && window.SSAPCharts(@json($charts)); });</script>
 </body>
 </html>

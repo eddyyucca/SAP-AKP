@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CorrectiveAction;
 use App\Models\Hazard;
 use App\Models\Inspection;
 use App\Models\Location;
@@ -32,7 +31,6 @@ class DashboardController extends Controller
             'board' => $hz->board('pic', 6),
             'behind' => $ins->behindThisMonth(),
             'recentInspections' => $ins->recent(5),
-            'overdueActions' => CorrectiveAction::overdue()->with('source:id,number,title')->orderBy('due_date')->limit(6)->get(),
             'canManage' => Access::canManage(),
         ]);
     }
@@ -68,7 +66,7 @@ class DashboardController extends Controller
             'inspectors' => $ins->inspectorBoard(12),
             'behind' => $ins->behindThisMonth(),
             'reporters' => $hz->topReporters(10),
-            'overdueActions' => CorrectiveAction::overdue()->with('source:id,number,title')->orderBy('due_date')->limit(15)->get(),
+            'overdueHazards' => $hz->attention(15),
         ]);
     }
 
@@ -100,7 +98,6 @@ class DashboardController extends Controller
 
         $hazards = Hazard::query()->visibleTo($user)->where(fn ($q) => $q->where('created_by_id', (string) $user->id)->orWhere('reporter_nik', $nik));
         $inspections = Inspection::query()->visibleTo($user);
-        $myActions = CorrectiveAction::query()->where('pic_nik', $nik);
 
         $mine = collect(app(\App\Services\TargetStats::class)->rows(now(), [$nik]))->first();
 
@@ -110,13 +107,11 @@ class DashboardController extends Controller
                 'hazards' => (clone $hazards)->count(),
                 'hazards_open' => (clone $hazards)->open()->count(),
                 'inspections' => (clone $inspections)->whereMonth('inspected_at', now()->month)->whereYear('inspected_at', now()->year)->count(),
-                'actions' => (clone $myActions)->pending()->count(),
-                'to_verify' => CorrectiveAction::where('status', 'done')->where('source_type', 'hazard')->whereIn('source_id', (clone $hazards)->select('id'))->count(),
-                'overdue' => (clone $myActions)->overdue()->count(),
+                'overdue' => (clone $hazards)->open()->whereDate('due_date', '<', today())->count(),
             ],
             'recentHazards' => (clone $hazards)->with('location:id,name')->latest('observed_at')->limit(6)->get(),
             'recentInspections' => (clone $inspections)->with('location:id,name')->latest('inspected_at')->limit(5)->get(),
-            'actions' => (clone $myActions)->pending()->with('source:id,number,title')->orderBy('due_date')->limit(8)->get(),
+            'openHazards' => (clone $hazards)->open()->with('location:id,name')->orderBy('due_date')->limit(8)->get(),
         ]);
     }
 }

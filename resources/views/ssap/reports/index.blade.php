@@ -30,7 +30,7 @@
     </div>
     <div class="d-flex flex-wrap gap-2 mt-3 pt-3 border-top align-items-center">
         <span class="small text-muted me-1"><i class="bi bi-download me-1"></i>Unduh CSV:</span>
-        @foreach (['hazards' => 'Hazard', 'inspections' => 'Inspeksi', 'findings' => 'Temuan inspeksi', 'actions' => 'Tindakan'] as $ds => $label)
+        @foreach (['hazards' => 'Hazard', 'inspections' => 'Inspeksi', 'findings' => 'Temuan inspeksi'] as $ds => $label)
             <a class="btn btn-outline-success btn-sm" href="{{ route('ssap.reports.export', ['dataset' => $ds] + $qs) }}">{{ $label }}</a>
         @endforeach
         <a class="btn btn-outline-secondary btn-sm ms-md-auto" href="{{ route('ssap.reports.monthly', ['month' => \Illuminate\Support\Carbon::parse($filters['to'])->format('Y-m')] + array_filter(['location' => $locationId])) }}"><i class="bi bi-printer me-1"></i>Ringkasan bulanan (cetak)</a>
@@ -57,8 +57,8 @@
     <div class="col-12 col-md-6 col-xl-4"><div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-geo-alt"></i>Per lokasi</h3></div><div class="s-card-body"><div class="chart-box tall"><canvas id="cvLocation"></canvas></div></div></div></div>
     <div class="col-12 col-md-6 col-xl-4"><div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-hourglass-bottom"></i>Umur hazard terbuka</h3></div><div class="s-card-body"><div class="chart-box"><canvas id="cvAging"></canvas></div></div></div></div>
     <div class="col-12 col-md-6 col-xl-4"><div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-people"></i>Departemen pelapor</h3></div><div class="s-card-body"><div class="chart-box"><canvas id="cvDept"></canvas></div></div></div></div>
-    <div class="col-12 col-md-6 col-xl-4"><div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Beban &amp; kinerja PIC</h3></div><div class="s-card-body"><div class="chart-box"><canvas id="cvPic"></canvas></div></div></div></div>
-    <div class="col-12 col-md-6 col-xl-4"><div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-list-check"></i>Status tindakan</h3></div><div class="s-card-body"><div class="chart-box"><canvas id="cvActions"></canvas></div></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Kinerja pelapor (PIC)</h3></div><div class="s-card-body"><div class="chart-box"><canvas id="cvPic"></canvas></div></div></div></div>
+    <div class="col-12 col-md-6 col-xl-4"><div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-activity"></i>Status hazard</h3></div><div class="s-card-body"><div class="chart-box"><canvas id="cvStatus"></canvas></div></div></div></div>
 </div>
 
 <div class="section-h">Inspeksi</div>
@@ -90,7 +90,7 @@
         </div>
     </div>
     <div class="col-12 col-xl-6">
-        <div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Akuntabilitas per PIC</h3></div>@include('ssap._board', ['rows' => $picBoard, 'withDept' => true])</div>
+        <div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Kinerja per pelapor (PIC)</h3></div>@include('ssap._board', ['rows' => $picBoard, 'withDept' => true])</div>
     </div>
     <div class="col-12 col-xl-6">
         <div class="s-card h-100"><div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-diagram-3"></i>Akuntabilitas per departemen</h3></div>@include('ssap._board', ['rows' => $deptBoard, 'withDept' => false])</div>
@@ -127,6 +127,6 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{{ asset('assets/js/ssap-charts.js') }}?v=7"></script>
+<script src="{{ asset('assets/js/ssap-charts.js') }}?v=8"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { window.SSAPCharts && window.SSAPCharts(@json($charts)); });</script>
 @endpush

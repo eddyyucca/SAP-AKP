@@ -7,7 +7,7 @@
 @endsection
 
 @section('content')
-<div class="alert alert-primary small"><i class="bi bi-journal-check me-1"></i><strong>Safety Accountability Program (SAP)</strong> {{ config('ssap.company') }}: setiap hazard punya penanggung jawab (PIC), tenggat penyelesaian, dan bukti penyelesaian yang diverifikasi HSE. Inspeksi rutin memastikan area kerja diperiksa terjadwal, dan setiap temuan langsung menjadi hazard.</div>
+<div class="alert alert-primary small"><i class="bi bi-journal-check me-1"></i><strong>Safety Accountability Program (SAP)</strong> {{ config('ssap.company') }}: pelapor adalah PIC hazardnya; perbaikan dikerjakan secara manual di lapangan, lalu pelapor mencatat tindakan perbaikan yang menutup laporan. Tim safety hanya memantau. Inspeksi rutin memastikan area kerja diperiksa terjadwal, dan setiap temuan langsung menjadi hazard.</div>
 
 <div class="row g-3">
     <div class="col-12 col-xl-6">
@@ -16,9 +16,9 @@
             <div class="s-card-body small">
                 <ol class="mb-2">
                     <li><strong>Dilaporkan</strong> oleh siapa saja (jenis TTA atau KTA, keterangan, dan foto). Tenggat awal {{ $slaDays }} hari.</li>
-                    <li><strong>Ditugaskan</strong> HSE ke PIC beserta tindakan yang harus dikerjakan (status <em>Dalam perbaikan</em>).</li>
-                    <li>PIC mengerjakan dan menandai selesai dengan <strong>bukti foto</strong>.</li>
-                    <li><strong>Pelapor memverifikasi</strong> bukti dan memastikan perbaikannya benar di lapangan (atau mengembalikan ke PIC dengan alasan). Hazard otomatis <strong>Selesai</strong> bila semua tindakannya terverifikasi; pelapor juga dapat menutup hazard dengan catatan hasil.</li>
+                    <li><strong>Pelapor otomatis menjadi PIC</strong> laporan itu. Perbaikan dikerjakan secara manual di lapangan; tidak ada penugasan lewat sistem.</li>
+                    <li>Pelapor dapat menandai <em>Sedang diperbaiki</em> (status <em>Dalam perbaikan</em>).</li>
+                    <li>Setelah perbaikan selesai, pelapor <strong>mencatat tindakan perbaikan</strong> (dengan foto bukti) dan laporan otomatis <strong>Selesai</strong>. Bila belum tuntas, pelapor dapat membukanya kembali.</li>
                 </ol>
                 <div class="text-muted">Tepat waktu = hazard ditutup pada atau sebelum tanggal tenggat. Hazard terbuka yang lewat tenggat berstatus <em>terlambat</em>.</div>
             </div>
@@ -39,7 +39,7 @@
     <div class="col-12 col-xl-6">
         <div class="s-card h-100">
             <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-3-circle"></i>Tenggat penyelesaian</h3></div>
-            <div class="s-card-body small">Setiap hazard baru diberi tenggat <strong>{{ $slaDays }} hari</strong> sejak dilaporkan. HSE dapat menetapkan tenggat lain saat menugaskan PIC; tenggat inilah yang dipakai untuk menghitung <em>tepat waktu</em> dan <em>terlambat</em>.</div>
+            <div class="s-card-body small">Setiap hazard baru diberi tenggat <strong>{{ $slaDays }} hari</strong> sejak dilaporkan. Tenggat inilah yang dipakai untuk menghitung <em>tepat waktu</em> dan <em>terlambat</em>. Tim safety (HSE) hanya <strong>memantau</strong> lewat dashboard, laporan, dan email ringkasan; tidak ada langkah persetujuan oleh orang lain.</div>
         </div>
     </div>
 
@@ -69,8 +69,8 @@
                     <dt>Tepat waktu (SLA)</dt><dd>hazard selesai sebelum/pada tenggat / seluruh hazard selesai.</dd>
                     <dt>Rata-rata selesai</dt><dd>rata-rata hari sejak dilaporkan sampai ditutup.</dd>
                     <dt>Umur hazard</dt><dd>hari sejak dilaporkan untuk hazard yang masih terbuka (0-3, 4-7, 8-14, 15-30, &gt; 30 hari).</dd>
-                    <dt>Papan PIC</dt><dd>ditugaskan, terbuka, terlambat, selesai, % tepat waktu per PIC dan per departemen.</dd>
-                    <dt>Pengingat</dt><dd>PIC menerima email pengingat tiap pagi sampai tindakan selesai; pelapor diminta memverifikasi saat tindakan selesai; HSE menerima ringkasan harian.</dd>
+                    <dt>Papan pelapor (PIC)</dt><dd>jumlah hazard, terbuka, terlambat, selesai, % tepat waktu per pelapor dan per departemen.</dd>
+                    <dt>Pengingat</dt><dd>Pelapor (PIC) menerima email pengingat tiap pagi sampai hazardnya ditutup; HSE menerima ringkasan pantauan harian.</dd>
                 </dl>
             </div>
         </div>

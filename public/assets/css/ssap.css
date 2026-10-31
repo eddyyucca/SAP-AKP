@@ -190,13 +190,13 @@ a.kpi:hover { box-shadow: var(--shadow-soft); transform: translateY(-1px); color
 @media print { .content-shell { overflow: visible; } }
 
 @media (max-width: 767.98px) {
-    .table-responsive > .table-ssap { min-width: 640px; }
+    .table-responsive > .table-ssap:not(.table-fit) { min-width: 640px; }
     .table-responsive > .table-ssap.sticky-first { min-width: 760px; }
 }
 .table-ssap.sticky-first th:first-child, .table-ssap.sticky-first td:first-child { min-width: 170px; }
 @media (min-width: 992px) { .table-ssap.sticky-first td:first-child { min-width: 210px; } }
 
 /* Papan akuntabilitas: kolom nama tidak boleh menyempit; tabel bergulir mendatar bila kartu sempit */
-.table-board { min-width: 560px; }
+.table-board:not(.table-fit) { min-width: 560px; }
 .table-board td:first-child, .table-board th:first-child { min-width: 150px; }
 .table-board td.num, .table-board th.num { white-space: nowrap; }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CorrectiveAction;
 use App\Models\Hazard;
 use App\Models\Inspection;
 use App\Models\InspectionItem;
@@ -81,7 +80,7 @@ class ReportController extends Controller
             'categoryTable' => $hz->categoryTable(),
             'openList' => Hazard::with('location:id,name')->open()
                 ->when($locationId, fn ($q) => $q->where('location_id', $locationId))->orderBy('due_date')->limit(15)->get(),
-            'overdue' => CorrectiveAction::overdue()->with('source:id,number,title')->orderBy('due_date')->limit(15)->get(),
+            'overdue' => $hz->attention(15),
             'templateRows' => $ins->byTemplate(),
             'topFindings' => $ins->topFindings(8),
             'picBoard' => $hz->board('pic', 10),
@@ -92,7 +91,7 @@ class ReportController extends Controller
 
     public function export(Request $request, string $dataset): StreamedResponse
     {
-        abort_unless(in_array($dataset, ['hazards', 'inspections', 'findings', 'actions'], true), 404);
+        abort_unless(in_array($dataset, ['hazards', 'inspections', 'findings'], true), 404);
 
         [$from, $to, $locationId] = $this->range($request);
 
@@ -100,7 +99,6 @@ class ReportController extends Controller
             'hazards' => $this->hazardRows($from, $to, $locationId),
             'inspections' => $this->inspectionRows($from, $to, $locationId),
             'findings' => $this->findingRows($from, $to, $locationId),
-            'actions' => $this->actionRows($from, $to, $locationId),
         };
 
         $filename = "sap-{$dataset}-".$from->format('Ymd').'-'.$to->format('Ymd').'.csv';
@@ -199,19 +197,6 @@ class ReportController extends Controller
             ])->values()->all();
 
         return [['Nomor inspeksi', 'Tanggal', 'Template', 'Lokasi', 'Butir', 'Temuan', 'Nomor hazard', 'Status hazard'], $rows];
-    }
-
-    private function actionRows(Carbon $from, Carbon $to, ?int $locationId): array
-    {
-        $rows = CorrectiveAction::with('source')->whereBetween('due_date', [$from->toDateString(), $to->toDateString()])
-            ->orderBy('due_date')->get()
-            ->filter(fn ($a) => ! $locationId || ($a->source && (int) $a->source->location_id === $locationId))
-            ->map(fn (CorrectiveAction $a) => [
-                $a->source?->number, $a->typeLabel(), $a->description, $a->pic_name, $a->pic_department, $a->due_date->format('Y-m-d'),
-                $a->statusMeta()['label'], $a->isOverdue() ? 'Ya' : 'Tidak', $a->completed_at?->format('Y-m-d'), $a->completion_note, $a->verified_by, $a->verified_at?->format('Y-m-d'),
-            ])->values()->all();
-
-        return [['Sumber', 'Jenis', 'Tindakan', 'PIC', 'Departemen PIC', 'Tenggat', 'Status', 'Terlambat', 'Tanggal selesai', 'Catatan penyelesaian', 'Diverifikasi oleh', 'Tanggal verifikasi'], $rows];
     }
 
     /** Cegah injeksi rumus spreadsheet: sel yang diawali = + - @ diberi tanda petik. */

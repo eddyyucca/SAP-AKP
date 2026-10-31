@@ -13,27 +13,27 @@
 @endphp
 
 @section('content')
-<div class="alert alert-primary small mb-3"><i class="bi bi-info-circle me-1"></i><strong>Akuntabilitas</strong> menjawab: siapa yang bertanggung jawab atas setiap hazard dan tindakan, dan apakah selesai <em>tepat waktu</em>. &ldquo;Tepat waktu&rdquo; = ditutup sebelum atau pada tanggal tenggat; tenggat awal setiap hazard {{ config('ssap.hazard_sla_days') }} hari sejak dilaporkan dan dapat diubah HSE saat menugaskan PIC.</div>
+<div class="alert alert-primary small mb-3"><i class="bi bi-info-circle me-1"></i><strong>Akuntabilitas</strong> menjawab: apakah pelapor (PIC) menutup hazardnya <em>tepat waktu</em>. Pelapor adalah PIC; perbaikan dikerjakan di lapangan dan dicatat pelapor. Tim safety hanya memantau. &ldquo;Tepat waktu&rdquo; = ditutup sebelum atau pada tanggal tenggat; tenggat setiap hazard {{ config('ssap.hazard_sla_days') }} hari sejak dilaporkan.</div>
 
 @include('ssap._filter')
 
 <div class="row g-3 mb-3">
     <div class="col-6 col-lg-3"><x-kpi label="Tepat waktu (SLA)" :value="$p($kpi['sla_pct'])" icon="bi-stopwatch" :tone="$tone($kpi['sla_pct'])" sub="Hazard selesai sebelum tenggat" /></div>
-    <div class="col-6 col-lg-3"><x-kpi label="Hazard terlambat" :value="$kpi['overdue_now']" icon="bi-alarm" :tone="$kpi['overdue_now'] ? 'danger' : 'success'" :sub="$kpi['unassigned'].' belum ada PIC'" :href="route('ssap.hazards.index', ['scope' => 'late'])" /></div>
-    <div class="col-6 col-lg-3"><x-kpi label="Tindakan terlambat" :value="$kpi['actions_overdue']" icon="bi-list-check" :tone="$kpi['actions_overdue'] ? 'danger' : 'success'" :sub="$kpi['actions_verify'].' menunggu verifikasi pelapor'" :href="route('ssap.actions.index', ['view' => 'overdue'])" /></div>
+    <div class="col-6 col-lg-3"><x-kpi label="Hazard terlambat" :value="$kpi['overdue_now']" icon="bi-alarm" :tone="$kpi['overdue_now'] ? 'danger' : 'success'" :sub="$kpi['in_progress'].' sedang diperbaiki'" :href="route('ssap.hazards.index', ['scope' => 'late'])" /></div>
+    <div class="col-6 col-lg-3"><x-kpi label="Rata-rata selesai" :value="$kpi['avg_days'] !== null ? $n($kpi['avg_days'], 1).' hr' : '-'" icon="bi-hourglass-split" tone="primary" sub="Sejak dilaporkan sampai ditutup" /></div>
     <div class="col-6 col-lg-3"><x-kpi label="Kepatuhan inspeksi" :value="$p($ikpi['compliance'])" icon="bi-calendar-check" :tone="$tone($ikpi['compliance'], 90, 70)" :sub="$ikpi['count'].' dari target '.$n($ikpi['target'])" /></div>
 </div>
 
 <div class="row g-3 mb-3">
     <div class="col-12 col-xl-7">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Kinerja per PIC</h3><span class="s-card-sub">Diurutkan dari yang paling banyak terlambat</span></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-check"></i>Kinerja per pelapor (PIC)</h3><span class="s-card-sub">Diurutkan dari yang paling banyak terlambat</span></div>
             @include('ssap._board', ['rows' => $picBoard, 'withDept' => true])
         </div>
     </div>
     <div class="col-12 col-xl-5">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-diagram-3"></i>Kinerja per departemen PIC</h3></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-diagram-3"></i>Kinerja per departemen pelapor</h3></div>
             @include('ssap._board', ['rows' => $deptBoard, 'withDept' => false])
         </div>
     </div>
@@ -42,18 +42,18 @@
 <div class="row g-3 mb-3">
     <div class="col-12 col-xl-7">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-alarm text-danger"></i>Tindakan terlambat</h3><a href="{{ route('ssap.actions.index', ['view' => 'overdue']) }}" class="small">Lihat semua</a></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-alarm text-danger"></i>Hazard melewati tenggat</h3><a href="{{ route('ssap.hazards.index', ['scope' => 'late']) }}" class="small">Lihat semua</a></div>
             <div class="table-responsive"><table class="table table-ssap mb-0">
-                <thead><tr><th>Tindakan</th><th>PIC</th><th>Tenggat</th></tr></thead>
+                <thead><tr><th>Hazard</th><th>Pelapor (PIC)</th><th>Tenggat</th></tr></thead>
                 <tbody>
-                @forelse ($overdueActions as $a)
-                    <tr class="row-link" data-href="{{ $a->sourceUrl() }}#tindakan">
-                        <td><div class="small text-muted">{{ $a->source?->number }}</div>{{ \Illuminate\Support\Str::limit($a->description, 70) }}</td>
-                        <td class="small">{{ $a->pic_name }}<div class="text-muted">{{ $a->pic_department }}</div></td>
-                        <td class="text-danger fw-semibold small text-nowrap">{{ $a->due_date->translatedFormat('d M Y') }}<div class="fw-normal">{{ $a->due_date->diffInDays(today()) }} hari lewat</div></td>
+                @forelse ($overdueHazards as $h)
+                    <tr class="row-link" data-href="{{ route('ssap.hazards.show', $h) }}">
+                        <td><div class="small text-muted">{{ $h->number }}</div>{{ \Illuminate\Support\Str::limit($h->description, 70) }}</td>
+                        <td class="small">{{ $h->pic_name ?? $h->reporter_name }}<div class="text-muted">{{ $h->pic_department }}</div></td>
+                        <td class="text-danger fw-semibold small text-nowrap">{{ $h->due_date->translatedFormat('d M Y') }}<div class="fw-normal">{{ $h->due_date->diffInDays(today()) }} hari lewat</div></td>
                     </tr>
                 @empty
-                    <tr><td colspan="3"><div class="empty-state py-4"><i class="bi bi-check2-all"></i>Semua tindakan tepat waktu.</div></td></tr>
+                    <tr><td colspan="3"><div class="empty-state py-4"><i class="bi bi-check2-all"></i>Semua hazard tepat waktu.</div></td></tr>
                 @endforelse
                 </tbody>
             </table></div>

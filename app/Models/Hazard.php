@@ -84,6 +84,11 @@ class Hazard extends Model
             $h->risk_level ??= 'medium';
             $h->title = $h->title ?: Str::limit(trim((string) $h->description), 150);
             $h->category = $h->category ?: 'kta';
+            // Pelapor = PIC hazard (perbaikan dikerjakan manual; pelapor yang mencatat dan menutup).
+            $h->pic_nik ??= $h->reporter_nik;
+            $h->pic_name ??= $h->reporter_name;
+            $h->pic_department ??= $h->reporter_department;
+            $h->pic_email ??= $h->reporter_email;
         });
     }
 

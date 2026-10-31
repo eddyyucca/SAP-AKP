@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 /** Bagian yang sama untuk hazard, inspeksi, dan tindakan: identitas pelapor/PIC, lampiran, aturan berkas. */
 trait ManagesRecords
 {
-    /** Identitas pelapor = pengguna Portal yang login, dilengkapi data HRIS (departemen, jabatan, email). */
+    /** Identitas pelapor = pengguna Portal yang login; nama, departemen, jabatan, email diambil dari HRIS dan tidak dapat diubah. */
     protected function reporterSnapshot(Request $request): array
     {
         $user = portal_user();
@@ -21,8 +21,9 @@ trait ManagesRecords
         return [
             'reporter_nik' => $user->employee_no,
             'reporter_name' => $employee['name'] ?? $user->name,
-            'reporter_department' => $this->clean($request->input('reporter_department')) ?? ($employee['department'] ?? null),
-            'reporter_position' => $this->clean($request->input('reporter_position')) ?? ($employee['position'] ?? null),
+            // Departemen dan jabatan HANYA dari HRIS; isian dari browser diabaikan (tidak dapat diubah pelapor).
+            'reporter_department' => $employee['department'] ?? null,
+            'reporter_position' => $employee['position'] ?? null,
             'reporter_email' => $employee['email'] ?? $user->email,
             'created_by_id' => (string) $user->id,
         ];

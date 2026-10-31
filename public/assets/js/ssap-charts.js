@@ -133,11 +133,7 @@
             options: { indexAxis: 'y', scales: { x: axisY({ stacked: true }), y: axisX({ stacked: true }) }, plugins: { legend: { position: 'bottom' } } },
         });
 
-        make('cvActions', {
-            type: 'bar',
-            data: { labels: c.actions.labels, datasets: [{ label: 'Tindakan', data: c.actions.data, backgroundColor: c.actions.colors, borderRadius: 4, maxBarThickness: 44 }] },
-            options: { scales: { x: axisX(), y: axisY() }, plugins: { legend: { display: false } } },
-        });
+        doughnut('cvStatus', c.status);
     }
 
     // ---------------------------------------------------------------- Inspeksi

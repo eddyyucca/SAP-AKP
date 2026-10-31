@@ -33,7 +33,6 @@
             <select name="scope" class="form-select form-select-sm"><option value="">Semua</option>
                 <option value="open" @selected(($filters['scope'] ?? '') === 'open')>Masih terbuka</option>
                 <option value="late" @selected(($filters['scope'] ?? '') === 'late')>Melewati tenggat</option>
-                <option value="unassigned" @selected(($filters['scope'] ?? '') === 'unassigned')>Belum ada PIC</option>
             </select>
         </div>
         <div class="col-6 col-md-3 col-xl-2"><input type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="form-control form-control-sm" title="Dari tanggal temuan"></div>
@@ -50,18 +49,23 @@
 
 <div class="s-card">
     <div class="table-responsive">
-        <table class="table table-ssap mb-0">
-            <thead><tr><th>Nomor</th><th>Keterangan</th><th>Jenis</th><th>Lokasi</th><th>Ditemukan</th><th>PIC / tenggat</th><th>Status</th></tr></thead>
+        <table class="table table-ssap table-fit mb-0">
+            <thead><tr><th>Nomor</th><th>Keterangan</th><th class="d-none d-md-table-cell">Jenis</th><th class="d-none d-md-table-cell">Lokasi</th><th class="d-none d-md-table-cell">Ditemukan</th><th class="d-none d-md-table-cell">Pelapor (PIC) / tenggat</th><th class="d-none d-md-table-cell">Status</th></tr></thead>
             <tbody>
             @forelse ($hazards as $h)
                 <tr class="row-link" data-href="{{ route('ssap.hazards.show', $h) }}">
                     <td class="fw-semibold text-nowrap">{{ $h->number }}</td>
-                    <td style="min-width:240px;">{{ \Illuminate\Support\Str::limit($h->description, 90) }}</td>
-                    <td><x-cat :category="$h->category" /></td>
-                    <td>{{ $h->location?->name }}</td>
-                    <td class="text-nowrap">{{ $h->observed_at->translatedFormat('d M Y') }}<div class="small text-muted">{{ $h->reporter_name }}</div></td>
-                    <td class="small">{{ $h->pic_name ?? '-' }}<div class="{{ $h->isOverdue() ? 'text-danger fw-semibold' : 'text-muted' }}">{{ $h->due_date?->translatedFormat('d M Y') }}@if ($h->isOverdue()) <i class="bi bi-exclamation-circle"></i>@endif</div></td>
-                    <td><x-pill :meta="$h->statusMeta()" /></td>
+                    <td style="min-width:200px;">{{ \Illuminate\Support\Str::limit($h->description, 90) }}
+                        <div class="d-md-none d-flex flex-wrap gap-1 align-items-center mt-1">
+                            <x-cat :category="$h->category" /><x-pill :meta="$h->statusMeta()" />
+                            <span class="small {{ $h->isOverdue() ? 'text-danger fw-semibold' : 'text-muted' }}">{{ $h->location?->name }} &middot; tenggat {{ $h->due_date?->translatedFormat('d M') }}</span>
+                        </div>
+                    </td>
+                    <td class="d-none d-md-table-cell"><x-cat :category="$h->category" /></td>
+                    <td class="d-none d-md-table-cell">{{ $h->location?->name }}</td>
+                    <td class="text-nowrap d-none d-md-table-cell">{{ $h->observed_at->translatedFormat('d M Y') }}<div class="small text-muted">{{ $h->reporter_name }}</div></td>
+                    <td class="small d-none d-md-table-cell">{{ $h->pic_name ?? '-' }}<div class="{{ $h->isOverdue() ? 'text-danger fw-semibold' : 'text-muted' }}">{{ $h->due_date?->translatedFormat('d M Y') }}@if ($h->isOverdue()) <i class="bi bi-exclamation-circle"></i>@endif</div></td>
+                    <td class="d-none d-md-table-cell"><x-pill :meta="$h->statusMeta()" /></td>
                 </tr>
             @empty
                 <tr><td colspan="7"><div class="empty-state"><i class="bi bi-shield-check"></i>Tidak ada hazard yang cocok.</div></td></tr>

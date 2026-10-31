@@ -23,7 +23,6 @@
         ['title' => 'Data Safety', 'children' => [
             $item($canViewAll ? 'Daftar Hazard' : 'Hazard Saya', 'bi bi-shield-exclamation', 'ssap.hazards.index', ['ssap.hazards.index', 'ssap.hazards.show', 'ssap.hazards.edit']),
             $item($canViewAll ? 'Daftar Inspeksi' : 'Inspeksi Saya', 'bi bi-clipboard2-data', 'ssap.inspections.index', ['ssap.inspections.index', 'ssap.inspections.show']),
-            $item($canViewAll ? 'Tindakan Korektif' : 'Tindakan Saya', 'bi bi-list-check', 'ssap.actions.index', ['ssap.actions.*']),
             $item(['all' => 'Target Departemen', 'team' => 'Target Tim', 'self' => 'Target Saya'][\App\Support\Access::scope()['mode']], 'bi bi-bullseye', 'ssap.targets', ['ssap.targets']),
         ]],
     ];

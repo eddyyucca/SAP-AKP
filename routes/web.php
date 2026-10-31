@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\ActionController;
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
@@ -38,22 +37,14 @@ Route::middleware(['portal.role:admin,hse,manager,user', 'throttle:120,1'])->pre
     Route::post('inspeksi', [InspectionController::class, 'store'])->middleware('throttle:30,1')->name('inspections.store');
     Route::get('inspeksi/{inspection}', [InspectionController::class, 'show'])->whereNumber('inspection')->name('inspections.show');
 
-    // Tindakan korektif: PIC memperbarui progres miliknya; penetapan dan verifikasi khusus HSE (di bawah).
-    Route::get('tindakan', [ActionController::class, 'index'])->name('actions.index');
-    Route::put('tindakan/{action}/progres', [ActionController::class, 'progress'])->whereNumber('action')->name('actions.progress');
-    // Verifikasi tindakan dan penutupan hazard dilakukan PELAPOR (administrator sebagai cadangan); dicek per laporan di controller.
-    Route::post('tindakan/{action}/verifikasi', [ActionController::class, 'verify'])->whereNumber('action')->name('actions.verify');
+    // Pelapor (= PIC) mencatat perkembangan dan tindakan perbaikan hazardnya; dicek per laporan di controller.
     Route::post('hazard/{hazard}/status', [HazardController::class, 'resolve'])->whereNumber('hazard')->name('hazards.resolve');
 
     Route::get('lampiran/{attachment}', [AttachmentController::class, 'show'])->whereNumber('attachment')->name('attachments.show');
+    Route::delete('lampiran/{attachment}', [AttachmentController::class, 'destroy'])->whereNumber('attachment')->name('attachments.destroy');
 
     // Petugas HSE & Administrator: menangani laporan.
     Route::middleware('portal.role:admin,hse')->group(function () {
-        Route::post('hazard/{hazard}/tugaskan', [HazardController::class, 'assign'])->whereNumber('hazard')->name('hazards.assign');
-
-        Route::post('tindakan', [ActionController::class, 'store'])->name('actions.store');
-        Route::delete('tindakan/{action}', [ActionController::class, 'destroy'])->whereNumber('action')->name('actions.destroy');
-        Route::delete('lampiran/{attachment}', [AttachmentController::class, 'destroy'])->whereNumber('attachment')->name('attachments.destroy');
 
         Route::get('inspeksi-template', [InspectionTemplateController::class, 'index'])->name('inspection-templates.index');
         Route::post('inspeksi-template', [InspectionTemplateController::class, 'store'])->name('inspection-templates.store');

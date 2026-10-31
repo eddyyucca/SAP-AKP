@@ -30,10 +30,10 @@
     </div>
 </div>
 
-@if ($counts['to_verify'])
-    <div class="alert alert-warning d-flex align-items-center gap-2 py-2 small mb-3">
-        <i class="bi bi-patch-question-fill"></i>
-        <div><strong>{{ $counts['to_verify'] }} tindakan</strong> pada hazard yang Anda laporkan sudah dikerjakan PIC dan menunggu verifikasi Anda. <a href="{{ route('ssap.actions.index', ['view' => 'verify']) }}" class="fw-semibold">Periksa sekarang</a></div>
+@if ($counts['overdue'])
+    <div class="alert alert-danger d-flex align-items-center gap-2 py-2 small mb-3">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <div><strong>{{ $counts['overdue'] }} hazard</strong> yang Anda laporkan melewati tenggat. Bila perbaikan sudah dikerjakan, catat tindakan perbaikannya agar laporan ditutup. <a href="{{ route('ssap.hazards.index', ['scope' => 'late']) }}" class="fw-semibold">Lihat</a></div>
     </div>
 @endif
 
@@ -51,26 +51,26 @@
 <div class="row g-3 mb-3">
     <div class="col-6 col-lg-3"><x-kpi label="Hazard saya" :value="$counts['hazards']" icon="bi-cone-striped" tone="warning" :sub="$counts['hazards_open'].' masih diproses'" :href="route('ssap.hazards.index')" /></div>
     <div class="col-6 col-lg-3"><x-kpi label="Inspeksi bulan ini" :value="$counts['inspections']" icon="bi-clipboard2-check" tone="primary" :href="route('ssap.inspections.index')" /></div>
-    <div class="col-6 col-lg-3"><x-kpi label="Tindakan untuk saya" :value="$counts['actions']" icon="bi-list-check" :tone="$counts['overdue'] ? 'danger' : 'info'" :sub="$counts['overdue'] ? $counts['overdue'].' terlambat' : 'Tepat waktu'" :href="route('ssap.actions.index')" /></div>
-    <div class="col-6 col-lg-3"><x-kpi label="Terlambat" :value="$counts['overdue']" icon="bi-alarm" :tone="$counts['overdue'] ? 'danger' : 'success'" sub="Tindakan melewati tenggat" :href="route('ssap.actions.index')" /></div>
+    <div class="col-6 col-lg-3"><x-kpi label="Perlu saya selesaikan" :value="$counts['hazards_open']" icon="bi-tools" :tone="$counts['hazards_open'] ? 'warning' : 'success'" sub="Catat tindakan perbaikan bila sudah selesai" :href="route('ssap.hazards.index', ['scope' => 'open'])" /></div>
+    <div class="col-6 col-lg-3"><x-kpi label="Terlambat" :value="$counts['overdue']" icon="bi-alarm" :tone="$counts['overdue'] ? 'danger' : 'success'" sub="Hazard melewati tenggat" :href="route('ssap.hazards.index', ['scope' => 'late'])" /></div>
 </div>
 
 <div class="row g-3">
     <div class="col-12 col-xl-6">
         <div class="s-card h-100">
-            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-list-check"></i>Tindakan yang harus saya kerjakan</h3></div>
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-tools"></i>Hazard saya yang belum selesai</h3></div>
             <div class="table-responsive">
                 <table class="table table-ssap mb-0">
-                    <thead><tr><th>Tindakan</th><th>Tenggat</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Hazard</th><th>Tenggat</th><th>Status</th></tr></thead>
                     <tbody>
-                    @forelse ($actions as $a)
-                        <tr class="row-link" data-href="{{ $a->sourceUrl() }}#tindakan">
-                            <td><div class="small text-muted">{{ $a->source?->number }}</div>{{ \Illuminate\Support\Str::limit($a->description, 60) }}</td>
-                            <td class="text-nowrap {{ $a->isOverdue() ? 'text-danger fw-semibold' : '' }}">{{ $a->due_date->translatedFormat('d M Y') }}</td>
-                            <td><x-pill :meta="$a->statusMeta()" /></td>
+                    @forelse ($openHazards as $h)
+                        <tr class="row-link" data-href="{{ route('ssap.hazards.show', $h) }}">
+                            <td><div class="small text-muted">{{ $h->number }}</div>{{ \Illuminate\Support\Str::limit($h->description, 60) }}</td>
+                            <td class="text-nowrap {{ $h->isOverdue() ? 'text-danger fw-semibold' : '' }}">{{ $h->due_date?->translatedFormat('d M Y') }}</td>
+                            <td><x-pill :meta="$h->statusMeta()" /></td>
                         </tr>
                     @empty
-                        <tr><td colspan="3"><div class="empty-state py-4"><i class="bi bi-check2-all"></i>Tidak ada tindakan untuk Anda.</div></td></tr>
+                        <tr><td colspan="3"><div class="empty-state py-4"><i class="bi bi-check2-all"></i>Tidak ada hazard yang menunggu penyelesaian.</div></td></tr>
                     @endforelse
                     </tbody>
                 </table>

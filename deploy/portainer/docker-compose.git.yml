@@ -63,8 +63,6 @@ services:
       MAILSVC_URL: ${MAILSVC_URL:-https://mail.lameruru.web.id}
       MAILSVC_TOKEN: ${MAILSVC_TOKEN:-}                # kosong = email memakai MAIL_* Laravel
       SSAP_NOTIFY_HSE: ${SSAP_NOTIFY_HSE:-}
-      SSAP_NOTIFY_MANAGER: ${SSAP_NOTIFY_MANAGER:-}
-      SSAP_NOTIFY_SEVERE: ${SSAP_NOTIFY_SEVERE:-}
     volumes:
       - ssap_storage:/var/www/html/storage
 
@@ -103,8 +101,6 @@ services:
       MAILSVC_URL: ${MAILSVC_URL:-https://mail.lameruru.web.id}
       MAILSVC_TOKEN: ${MAILSVC_TOKEN:-}
       SSAP_NOTIFY_HSE: ${SSAP_NOTIFY_HSE:-}
-      SSAP_NOTIFY_MANAGER: ${SSAP_NOTIFY_MANAGER:-}
-      SSAP_NOTIFY_SEVERE: ${SSAP_NOTIFY_SEVERE:-}
     volumes:
       - ssap_storage:/var/www/html/storage
 

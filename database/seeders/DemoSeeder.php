@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\ActivityLog;
-use App\Models\CorrectiveAction;
 use App\Models\Hazard;
 use App\Models\Inspection;
 use App\Models\InspectionTemplate;
@@ -125,12 +124,13 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * Membuat satu hazard dengan siklus hidup realistis: ditugaskan ke PIC langganan, lalu
-     * selesai tepat waktu atau terlambat sesuai "kebiasaan" PIC-nya.
+     * Membuat satu hazard dengan siklus hidup realistis: pelapor = PIC, perbaikan dikerjakan manual,
+     * lalu pelapor menutupnya tepat waktu atau terlambat sesuai "kebiasaan" pelapor tersebut.
      */
     private function makeHazard(array $attrs, Carbon $createdAt, Carbon $now): Hazard
     {
-        $reporter = $this->people[array_rand($this->people)];
+        $reporterIdx = array_rand($this->people);
+        $reporter = $this->people[$reporterIdx];
         $sla = (int) config('ssap.hazard_sla_days');
         // Jenis hazard: perilaku orang = TTA, selebihnya kondisi = KTA.
         $attrs['category'] = in_array($attrs['category'], ['unsafe_act', 'ppe'], true) ? 'tta' : 'kta';
@@ -141,15 +141,13 @@ class DemoSeeder extends Seeder
         }
 
         $age = $createdAt->diffInDays($now);
-        $assigned = $age > 2 || mt_rand(0, 3) > 0;
-        $picIdx = mt_rand(0, 7);
-        $pic = $assigned ? $this->people[$picIdx] : null;
+        $fixing = $age > 2 || mt_rand(0, 3) > 0;   // perbaikan sudah mulai dikerjakan
         $due = $createdAt->copy()->addDays($sla)->startOfDay();
 
         $closeProb = $age > 40 ? 98 : ($age > 14 ? 86 : ($age > 5 ? 55 : 15));
         $closedAt = null;
-        if ($assigned && mt_rand(1, 100) <= $closeProb) {
-            $late = mt_rand(1, 100) <= (int) ($this->lateRate[$picIdx] * 100);
+        if ($fixing && mt_rand(1, 100) <= $closeProb) {
+            $late = mt_rand(1, 100) <= (int) ($this->lateRate[$reporterIdx % count($this->lateRate)] * 100);
             $closedAt = $late
                 ? $due->copy()->addDays(mt_rand(1, 9))->setTime(mt_rand(8, 16), 0)
                 : $createdAt->copy()->addDays(mt_rand(0, max(0, $sla - 1)))->setTime(mt_rand(8, 16), 0);
@@ -164,30 +162,14 @@ class DemoSeeder extends Seeder
             'suggestion' => 'Perbaiki kondisi dan lakukan sosialisasi ke tim.',
             'reporter_nik' => $reporter['nik'], 'reporter_name' => $reporter['name'], 'reporter_department' => $reporter['department'],
             'reporter_position' => $reporter['position'], 'reporter_email' => $reporter['email'], 'created_by_id' => 'demo',
-            'pic_nik' => $pic['nik'] ?? null, 'pic_name' => $pic['name'] ?? null, 'pic_department' => $pic['department'] ?? null, 'pic_email' => $pic['email'] ?? null,
             'due_date' => $due->toDateString(),
-            'status' => $closedAt ? 'closed' : ($assigned ? 'in_progress' : 'open'),
-            'closed_at' => $closedAt, 'closed_by' => $closedAt ? 'Petugas HSE (demo)' : null,
-            'closure_note' => $closedAt ? 'Kondisi sudah diperbaiki dan diverifikasi di lapangan.' : null,
+            'status' => $closedAt ? 'closed' : ($fixing ? 'in_progress' : 'open'),
+            'closed_at' => $closedAt, 'closed_by' => $closedAt ? $reporter['name'] : null,
+            'closure_note' => $closedAt ? ['Kondisi sudah diperbaiki oleh tim terkait dan dicek di lapangan.', 'Perbaikan selesai, area sudah aman dan diberi rambu.', 'Komponen diganti dan prosedur disosialisasikan ke tim.'][mt_rand(0, 2)] : null,
             'created_at' => $createdAt, 'updated_at' => $createdAt,
         ]);
 
         ActivityLog::forceCreate(['loggable_type' => 'hazard', 'loggable_id' => $hazard->id, 'actor_id' => 'demo', 'actor_name' => $reporter['name'], 'event' => 'created', 'note' => 'Laporan dibuat', 'created_at' => $createdAt, 'updated_at' => $createdAt]);
-
-        if ($assigned) {
-            $status = $closedAt ? 'verified' : ['open', 'in_progress', 'in_progress', 'done'][mt_rand(0, 3)];
-            CorrectiveAction::forceCreate([
-                'source_type' => 'hazard', 'source_id' => $hazard->id,
-                'type' => ['immediate', 'corrective', 'preventive'][mt_rand(0, 2)],
-                'description' => ['Perbaiki kondisi di lokasi dan pasang rambu peringatan', 'Sosialisasi prosedur kerja aman ke seluruh tim shift', 'Ganti komponen rusak dan lakukan pengecekan berkala', 'Tambahkan pengawas pada pekerjaan berisiko', 'Perbarui JSA dan briefing sebelum kerja'][mt_rand(0, 4)],
-                'pic_nik' => $pic['nik'], 'pic_name' => $pic['name'], 'pic_department' => $pic['department'], 'pic_email' => $pic['email'],
-                'due_date' => $due->toDateString(), 'status' => $status,
-                'completed_at' => in_array($status, ['done', 'verified'], true) ? ($closedAt ?? $createdAt->copy()->addDays(2)) : null,
-                'completion_note' => in_array($status, ['done', 'verified'], true) ? 'Sudah dikerjakan sesuai rencana.' : null,
-                'verified_at' => $status === 'verified' ? $closedAt : null, 'verified_by' => $status === 'verified' ? 'Petugas HSE (demo)' : null,
-                'created_by' => 'Petugas HSE (demo)', 'created_at' => $createdAt, 'updated_at' => $createdAt,
-            ]);
-        }
 
         return $hazard;
     }

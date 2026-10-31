@@ -35,7 +35,7 @@
             </div>
         @endif
         @if ($mode !== 'self')
-            <div class="col-6 col-md-3 col-xl-2"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="only" value="behind" id="only" @checked($filters['only'] === 'behind')><label class="form-check-label small" for="only">Belum tercapai saja</label></div></div>
+            <div class="col-12 col-md-3 col-xl-2"><div class="form-check mt-md-3"><input class="form-check-input" type="checkbox" name="only" value="behind" id="only" @checked($filters['only'] === 'behind')><label class="form-check-label small" for="only">Belum tercapai saja</label></div></div>
         @endif
         <div class="col-12 col-md-auto d-flex gap-2">
             <button class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i>Terapkan</button>
@@ -97,19 +97,19 @@
     <div class="s-card mb-3">
         <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-lines-fill"></i>{{ $filters['only'] === 'behind' ? 'Anggota yang belum mencapai target' : 'Capaian per anggota' }}</h3><span class="s-card-sub">{{ count($rows) }} orang</span></div>
         <div class="table-responsive">
-            <table class="table table-ssap table-board mb-0">
-                <thead><tr><th>Karyawan</th><th>Departemen / atasan</th><th class="num">Grade</th><th>Periode</th><th class="num">Hazard</th><th class="num">Inspeksi</th><th class="num">Capaian</th><th>Status</th></tr></thead>
+            <table class="table table-ssap table-board table-fit mb-0">
+                <thead><tr><th>Karyawan</th><th class="d-none d-md-table-cell">Departemen / atasan</th><th class="num d-none d-md-table-cell">Grade</th><th class="d-none d-md-table-cell">Periode</th><th class="num">Hazard</th><th class="num">Inspeksi</th><th class="num">Capaian</th><th class="d-none d-md-table-cell">Status</th></tr></thead>
                 <tbody>
                 @forelse ($rows as $r)
                     <tr>
-                        <td><div class="fw-semibold">{{ $r['name'] }}</div><div class="small text-muted">{{ $r['nik'] }}{{ $r['position'] ? ' · '.$r['position'] : '' }}</div></td>
-                        <td class="small">{{ $r['department'] ?? '-' }}<div class="text-muted">{{ $r['supervisor_name'] ? 'Atasan: '.$r['supervisor_name'] : '' }}</div></td>
-                        <td class="num">{{ $r['grade'] }}</td>
-                        <td class="small text-nowrap">{{ $periodNames[$r['period']] }}<div class="text-muted">{{ $r['period_label'] }}</div></td>
+                        <td><div class="fw-semibold">{{ $r['name'] }}</div><div class="small text-muted">{{ $r['nik'] }}{{ $r['position'] ? ' · '.$r['position'] : '' }}</div><div class="d-md-none small text-muted">{{ $r['department'] ?? '-' }} &middot; Grade {{ $r['grade'] }}</div></td>
+                        <td class="small d-none d-md-table-cell">{{ $r['department'] ?? '-' }}<div class="text-muted">{{ $r['supervisor_name'] ? 'Atasan: '.$r['supervisor_name'] : '' }}</div></td>
+                        <td class="num d-none d-md-table-cell">{{ $r['grade'] }}</td>
+                        <td class="small text-nowrap d-none d-md-table-cell">{{ $periodNames[$r['period']] }}<div class="text-muted">{{ $r['period_label'] }}</div></td>
                         <td class="num {{ $r['hazard'] < $r['target_hazard'] ? 'text-danger fw-semibold' : '' }}">{{ $r['hazard'] }} / {{ $r['target_hazard'] }}</td>
                         <td class="num {{ $r['inspection'] < $r['target_inspection'] ? 'text-danger fw-semibold' : '' }}">{{ $r['inspection'] }} / {{ $r['target_inspection'] }}</td>
                         <td class="num"><span class="pill pill-{{ $pctTone($r['pct']) }}">{{ $r['pct'] }}%</span></td>
-                        <td><span class="pill pill-{{ $r['achieved'] ? 'success' : 'danger' }}">{{ $r['achieved'] ? 'Tercapai' : 'Belum' }}</span></td>
+                        <td class="d-none d-md-table-cell"><span class="pill pill-{{ $r['achieved'] ? 'success' : 'danger' }}">{{ $r['achieved'] ? 'Tercapai' : 'Belum' }}</span></td>
                     </tr>
                 @empty
                     <tr><td colspan="8"><div class="empty-state py-4"><i class="bi bi-people"></i>{{ $summary['members'] ? 'Semua anggota sudah mencapai target.' : 'Tidak ada karyawan bertarget yang dapat dilihat. Pastikan HRIS tersambung dan atasan langsung terisi.' }}</div></td></tr>
@@ -124,7 +124,7 @@
 @if ($mode !== 'self')
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{{ asset('assets/js/ssap-charts.js') }}?v=7"></script>
+<script src="{{ asset('assets/js/ssap-charts.js') }}?v=8"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { window.SSAPCharts && window.SSAPCharts(@json($charts)); });</script>
 @endpush
 @endif

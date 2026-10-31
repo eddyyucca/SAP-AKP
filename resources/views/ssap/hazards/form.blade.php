@@ -79,13 +79,16 @@
                         <dt>Nama</dt><dd class="fw-semibold">{{ $editing ? $hazard->reporter_name : ($me['name'] ?? $portalUser->name) }}</dd>
                         <dt>NIK</dt><dd>{{ $editing ? ($hazard->reporter_nik ?: '-') : ($portalUser->employee_no ?: '-') }}</dd>
                     </dl>
-                    <div class="mb-2"><label class="form-label small mb-1" for="reporter_department">Departemen</label><input type="text" name="reporter_department" id="reporter_department" value="{{ old('reporter_department', $editing ? $hazard->reporter_department : ($me['department'] ?? '')) }}" class="form-control form-control-sm" maxlength="120"></div>
-                    <div><label class="form-label small mb-1" for="reporter_position">Jabatan</label><input type="text" name="reporter_position" id="reporter_position" value="{{ old('reporter_position', $editing ? $hazard->reporter_position : ($me['position'] ?? '')) }}" class="form-control form-control-sm" maxlength="120"></div>
+                    <dl class="def-list mb-2" style="grid-template-columns:90px 1fr;">
+                        <dt>Departemen</dt><dd>{{ $editing ? ($hazard->reporter_department ?: '-') : ($me['department'] ?? '-') }}</dd>
+                        <dt>Jabatan</dt><dd>{{ $editing ? ($hazard->reporter_position ?: '-') : ($me['position'] ?? '-') }}</dd>
+                    </dl>
+                    <div class="form-text"><i class="bi bi-lock me-1"></i>Data pelapor (PIC) diambil dari HRIS dan tidak dapat diubah.</div>
                 </div>
             </div>
             <div class="s-card mb-3">
                 <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-stopwatch"></i>Target penyelesaian</h3></div>
-                <div class="s-card-body small">Hazard perlu selesai dalam <strong>{{ config('ssap.hazard_sla_days') }} hari</strong>. HSE dapat mengubah tenggat saat menugaskan PIC.</div>
+                <div class="s-card-body small">Hazard perlu ditutup dalam <strong>{{ config('ssap.hazard_sla_days') }} hari</strong>. Anda sebagai PIC mencatat tindakan perbaikan di halaman hazard setelah perbaikan selesai; tim safety hanya memantau.</div>
             </div>
             <div class="d-grid gap-2">
                 <button type="submit" class="btn btn-primary"><i class="bi bi-send me-1"></i>{{ $editing ? 'Simpan perubahan' : 'Kirim laporan' }}</button>

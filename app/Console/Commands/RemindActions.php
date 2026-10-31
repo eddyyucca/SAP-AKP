@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\CorrectiveAction;
 use App\Models\Hazard;
 use App\Models\InspectionTemplate;
 use App\Models\Setting;
@@ -14,21 +13,20 @@ class RemindActions extends Command
 {
     protected $signature = 'ssap:remind';
 
-    protected $description = 'Kirim pengingat tindakan yang mendekati/melewati tenggat ke PIC, ringkasan harian ke HSE, dan perbarui status email';
+    protected $description = 'Kirim pengingat hazard yang mendekati/melewati tenggat ke pelapor (PIC), ringkasan pantauan harian ke HSE, dan perbarui status email';
 
     public function handle(Notifier $notifier, AkpMail $mail): int
     {
         $window = today()->addDays((int) Setting::value('remind_days_before', '2'));
         $sent = 0;
 
-        CorrectiveAction::query()->with('source')
-            ->whereIn('status', ['open', 'in_progress'])
+        Hazard::query()->open()
             ->whereDate('due_date', '<=', $window)
-            ->whereNotNull('pic_email')
+            ->where(fn ($q) => $q->whereNotNull('pic_email')->orWhereNotNull('reporter_email'))
             ->where(fn ($q) => $q->whereNull('reminded_on')->orWhereDate('reminded_on', '<', today()))
-            ->each(function (CorrectiveAction $action) use ($notifier, &$sent) {
-                $notifier->remindAction($action);
-                $action->forceFill(['reminded_on' => today()])->save();
+            ->each(function (Hazard $hazard) use ($notifier, &$sent) {
+                $notifier->remindHazard($hazard);
+                $hazard->forceFill(['reminded_on' => today()])->save();
                 $sent++;
             });
 
@@ -43,10 +41,7 @@ class RemindActions extends Command
             ->filter(fn ($r) => $r['period'] === 'week' ? now()->dayOfWeekIso >= 4 : now()->day >= 20)->count();
 
         $digest = [
-            'Tindakan terlambat' => CorrectiveAction::overdue()->count(),
-            'Tindakan menunggu verifikasi' => CorrectiveAction::where('status', 'done')->count(),
             'Hazard terbuka (TTA + KTA)' => Hazard::open()->count(),
-            'Hazard belum ada PIC' => Hazard::where('status', 'open')->whereNull('pic_name')->count(),
             'Hazard melewati tenggat' => Hazard::open()->whereDate('due_date', '<', today())->count(),
             'Template inspeksi tertinggal dari target bulan ini' => $behind,
             'Karyawan belum mencapai target pelaporan periode ini' => $targetBehind,
