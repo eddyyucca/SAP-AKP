@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\TargetStats;
 use App\Support\Access;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 
 /** Target pelaporan bulanan (grade 3-5): milik sendiri, tim (grade 5), atau seluruh departemen (grade 6+, admin, HSE, manajer). */
@@ -39,11 +40,21 @@ class TargetController extends Controller
         $byDepartment = $scope['mode'] === 'all' && blank($data['department'] ?? null);
         $showBehind = ($data['only'] ?? null) === 'behind';
 
+        // Daftar anggota dipecah per halaman (departemen besar bisa ratusan orang); ringkasan dan grafik tetap memakai seluruh data.
+        $list = $showBehind ? $view->where('achieved', false)->values() : $view;
+        $perPage = 25;
+        $pager = new LengthAwarePaginator(
+            $list->forPage(max(1, (int) $request->query('page', 1)), $perPage)->values(),
+            $list->count(), $perPage, max(1, (int) $request->query('page', 1)),
+            ['path' => $request->url(), 'query' => $request->except('page')],
+        );
+
         return view('ssap.targets', [
+            'pager' => $pager,
             'ref' => $ref,
             'scope' => $scope,
             'targets' => TargetStats::targets(),
-            'rows' => ($showBehind ? $view->where('achieved', false)->values() : $view)->all(),
+            'rows' => $pager->items(),
             'mine' => $mine,
             'summary' => $summary,
             'departmentRows' => $scope['mode'] === 'all' ? $stats->byDepartment($view->all()) : [],

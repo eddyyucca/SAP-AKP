@@ -119,6 +119,32 @@ class TargetTest extends TestCase
         $this->as('600')->get('/ssap/target?date='.now()->subWeek()->toDateString())->assertOk()->assertSee('Anggota Lain');
     }
 
+    public function test_the_member_list_is_paginated_and_departments_show_target_vs_actual(): void
+    {
+        $many = [['employee_no' => '600', 'name' => 'Kepala Dept', 'department' => 'Produksi', 'is_active' => true, 'grade' => 6, 'supervisor_nik' => null]];
+        foreach (range(1, 60) as $i) {
+            $many[] = ['employee_no' => (string) (7000 + $i), 'name' => sprintf('Karyawan %02d', $i), 'department' => $i <= 40 ? 'Produksi' : 'Logistik', 'position' => 'Staf', 'is_active' => true, 'grade' => 3, 'supervisor_nik' => '600'];
+        }
+        config(['hris.url' => 'http://hris-besar.test']);   // stub baru (stub setUp memakai hris.test)
+        Http::fake(['hris-besar.test/*' => Http::response(['data' => $many, 'meta' => ['current_page' => 1, 'last_page' => 1, 'total' => 61]])]);
+        \Illuminate\Support\Facades\Cache::flush();
+
+        $this->hazard('7001');   // satu orang sudah membuat 1 dari target 2
+
+        $page1 = $this->as('600')->get('/ssap/target')->assertOk();
+        $page1->assertSee('60 orang')->assertSee('halaman 1 dari 3')->assertSee('Target per departemen');
+        $this->as('600')->get('/ssap/target?page=3')->assertOk()->assertSee('halaman 3 dari 3');
+
+        $rows = app(TargetStats::class)->rows(now());
+        $dept = collect(app(TargetStats::class)->byDepartment($rows))->keyBy('name');
+        $this->assertSame(80, $dept['Produksi']['target_hazard']);    // 40 orang x 2
+        $this->assertSame(1, $dept['Produksi']['hazard']);
+        $this->assertSame(40, $dept['Produksi']['members']);
+        $this->assertSame(1, $dept['Produksi']['volume_pct']);        // 1 dari 80 = 1%
+        $this->assertSame(40, $dept['Logistik']['target_hazard']);
+        $this->assertSame(0, $dept['Logistik']['volume_pct']);
+    }
+
     public function test_the_head_sees_who_has_not_met_the_target(): void
     {
         foreach ([3 => 1, 4 => 1, 5 => 0] as $g => $h) {

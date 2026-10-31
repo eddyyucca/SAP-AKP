@@ -107,6 +107,32 @@
     </div>
 </div>
 
+{{-- Target pelaporan per departemen (grade HRIS, periode berjalan) --}}
+<div class="row g-3 mb-3">
+    <div class="col-12">
+        <div class="s-card h-100">
+            <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-bullseye"></i>Target pelaporan per departemen</h3><a href="{{ route('ssap.targets') }}" class="small">Rincian per anggota</a></div>
+            @if ($targetDepts)
+                <div class="s-card-body"><div class="chart-box tall"><canvas id="cvTarget"></canvas></div></div>
+                <div class="table-responsive border-top"><table class="table table-ssap table-fit mb-0">
+                    <thead><tr><th>Departemen</th><th class="num">Orang</th><th class="num">Hazard<br><small class="fw-normal">real / target</small></th><th class="num d-none d-md-table-cell">Inspeksi<br><small class="fw-normal">real / target</small></th><th class="num">Belum tercapai</th><th class="num">Capaian</th></tr></thead>
+                    <tbody>@foreach (array_slice($targetDepts, 0, 8) as $d)
+                        <tr class="row-link" data-href="{{ route('ssap.targets', ['department' => $d['name'] === 'Tanpa departemen' ? '' : $d['name']]) }}">
+                            <td class="fw-semibold">{{ $d['name'] }}</td><td class="num">{{ $d['members'] }}</td>
+                            <td class="num">{{ $d['hazard'] }} / {{ $d['target_hazard'] }}</td>
+                            <td class="num d-none d-md-table-cell">{{ $d['target_inspection'] ? $d['inspection'].' / '.$d['target_inspection'] : '-' }}</td>
+                            <td class="num">{!! $d['behind'] ? '<span class="pill pill-danger">'.$d['behind'].'</span>' : '-' !!}</td>
+                            <td class="num">@if ($d['volume_pct'] !== null)<span class="pill pill-{{ $tone($d['volume_pct'], 100, 50) }}">{{ $d['volume_pct'] }}%</span>@else - @endif</td>
+                        </tr>
+                    @endforeach</tbody>
+                </table></div>
+            @else
+                <div class="s-card-body"><div class="empty-state py-4"><i class="bi bi-people"></i>Belum ada data target. Pastikan HRIS tersambung dan target grade diatur di Pengaturan.</div></div>
+            @endif
+        </div>
+    </div>
+</div>
+
 {{-- Grafik inspeksi --}}
 <div class="row g-3 mb-3">
     <div class="col-12 col-xl-8">
@@ -195,6 +221,6 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{{ asset('assets/js/ssap-charts.js') }}?v=8"></script>
+<script src="{{ asset('assets/js/ssap-charts.js') }}?v=9"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { window.SSAPCharts && window.SSAPCharts(@json($charts)); });</script>
 @endpush

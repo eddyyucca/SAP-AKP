@@ -23,10 +23,16 @@ class DashboardController extends Controller
         $hz = SafetyStats::forYear($year, $locationId);
         $ins = InspectionStats::forYear($year, $locationId);
 
+        $targets = app(\App\Services\TargetStats::class);
+        $targetRows = $targets->rows(now());
+        $targetChart = $targets->chart($targetRows, true);
+        $targetDepts = $targets->byDepartment($targetRows);
+
         return view('ssap.dashboard', $filters + [
             'kpi' => $hz->kpis(),
             'ikpi' => $ins->kpis(),
-            'charts' => $hz->charts() + ['inspection' => $ins->charts()],
+            'charts' => $hz->charts() + ['inspection' => $ins->charts(), 'target' => $targetChart],
+            'targetDepts' => $targetDepts,
             'attention' => $hz->attention(6),
             'board' => $hz->board('pic', 6),
             'behind' => $ins->behindThisMonth(),

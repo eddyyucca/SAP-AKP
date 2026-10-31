@@ -162,6 +162,21 @@
 
     // ------------------------------------------------------------------ Target bulanan
     function targetChart(t) {
+        if (t.target) {
+            // Per departemen: total target vs realisasi (realisasi dibatasi sebesar target per orang)
+            make('cvTarget', {
+                type: 'bar',
+                data: { labels: t.labels, datasets: [
+                    { label: 'Target', data: t.target, backgroundColor: '#cbd5e1', borderRadius: 3, maxBarThickness: 16 },
+                    { label: 'Realisasi', data: t.actual, backgroundColor: t.pct.map((v) => (v >= 100 ? GOOD : v >= 50 ? '#f59e0b' : '#dc2626')), borderRadius: 3, maxBarThickness: 16 },
+                ] },
+                options: {
+                    indexAxis: 'y', scales: { x: axisY(), y: axisX() },
+                    plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { afterBody: (items) => 'Capaian: ' + t.pct[items[0].dataIndex] + '%' } } },
+                },
+            });
+            return;
+        }
         const colors = t.pct.map((v) => (v >= 100 ? GOOD : v >= 50 ? '#f59e0b' : '#dc2626'));
         make('cvTarget', {
             type: 'bar',

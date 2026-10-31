@@ -58,11 +58,13 @@ services:
       PORTAL_APP_CODE: ${PORTAL_APP_CODE:-ssap-safety}   # harus sama dengan KODE modul di Portal
       PORTAL_SSO_SECRET: ${PORTAL_SSO_SECRET}
       AUTO_MIGRATE: "true"
-      HRIS_API_URL: ${HRIS_API_URL:-https://hris.lameruru.web.id}
+      HRIS_API_URL: ${HRIS_API_URL:-http://host.docker.internal:8101}   # HRIS di server yang sama (port HRIS 8101), tanpa lewat internet
       HRIS_API_TOKEN: ${HRIS_API_TOKEN:-}              # kosong = pencarian karyawan mati, formulir diisi manual
       MAILSVC_URL: ${MAILSVC_URL:-https://mail.lameruru.web.id}
       MAILSVC_TOKEN: ${MAILSVC_TOKEN:-}                # kosong = email memakai MAIL_* Laravel
       SSAP_NOTIFY_HSE: ${SSAP_NOTIFY_HSE:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ssap_storage:/var/www/html/storage
 
@@ -96,11 +98,13 @@ services:
       PORTAL_URL: ${PORTAL_URL:-https://portal.lameruru.web.id}
       PORTAL_APP_CODE: ${PORTAL_APP_CODE:-ssap-safety}
       PORTAL_SSO_SECRET: ${PORTAL_SSO_SECRET}
-      HRIS_API_URL: ${HRIS_API_URL:-https://hris.lameruru.web.id}
+      HRIS_API_URL: ${HRIS_API_URL:-http://host.docker.internal:8101}   # HRIS di server yang sama (port HRIS 8101), tanpa lewat internet
       HRIS_API_TOKEN: ${HRIS_API_TOKEN:-}
       MAILSVC_URL: ${MAILSVC_URL:-https://mail.lameruru.web.id}
       MAILSVC_TOKEN: ${MAILSVC_TOKEN:-}
       SSAP_NOTIFY_HSE: ${SSAP_NOTIFY_HSE:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ssap_storage:/var/www/html/storage
 

@@ -73,7 +73,7 @@ class HazardController extends Controller
             ]
         ));
 
-        $files = $this->storeAttachments($hazard, 'hazard', $request);
+        $files = $this->storeAttachments($hazard, 'hazard', $request, 'files', 'before');
         $hazard->log('created', 'Laporan dibuat'.($files ? " dengan {$files} lampiran" : ''));
 
         $this->notifier->hazardReported($hazard->fresh());
@@ -108,7 +108,7 @@ class HazardController extends Controller
         $data = $this->validated($request);
         $hazard->update($this->attributes($data));
 
-        $files = $this->storeAttachments($hazard, 'hazard', $request);
+        $files = $this->storeAttachments($hazard, 'hazard', $request, 'files', 'before');
         $hazard->log('updated', 'Isi laporan diperbarui'.($files ? " (+{$files} lampiran)" : ''));
 
         return redirect()->route('ssap.hazards.show', $hazard)->with('success', 'Laporan diperbarui.');
@@ -135,7 +135,7 @@ class HazardController extends Controller
             case 'in_progress':
                 abort_unless($hazard->status === 'open', 403);
                 $hazard->update(['status' => 'in_progress']);
-                $files = $this->storeAttachments($hazard, 'hazard', $request);
+                $files = $this->storeAttachments($hazard, 'hazard', $request, 'files', 'after');
                 $hazard->log('updated', 'Perbaikan sedang dikerjakan'.($note ? ': '.$note : '').($files ? " (+{$files} foto)" : ''));
                 $message = 'Status diperbarui: perbaikan sedang dikerjakan.';
                 break;
@@ -146,7 +146,7 @@ class HazardController extends Controller
                     throw ValidationException::withMessages(['note' => 'Tuliskan tindakan perbaikan yang sudah dilakukan.']);
                 }
                 $hazard->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => portal_user()->name, 'closure_note' => $note, 'reject_reason' => null]);
-                $files = $this->storeAttachments($hazard, 'hazard', $request);
+                $files = $this->storeAttachments($hazard, 'hazard', $request, 'files', 'after');
                 $hazard->log('closed', 'Tindakan perbaikan: '.$note.($files ? " (+{$files} foto)" : ''));
                 $this->notifier->hazardClosed($hazard->fresh());
                 $message = 'Tindakan perbaikan dicatat dan hazard ditutup. Terima kasih.';

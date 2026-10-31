@@ -73,20 +73,27 @@
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-12 {{ $mode === 'all' && $departmentRows ? 'col-xl-7' : '' }}">
+        <div class="col-12 {{ $mode === 'all' && $departmentRows ? 'col-xl-5' : '' }}">
             <div class="s-card h-100">
-                <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-bar-chart"></i>{{ $charts['target']['by_department'] ? 'Capaian per departemen' : 'Capaian per anggota' }}</h3><span class="s-card-sub">% dari target periode (tanggal acuan {{ $ref->translatedFormat('d M Y') }})</span></div>
+                <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-bar-chart"></i>{{ $charts['target']['by_department'] ? 'Target vs realisasi per departemen' : 'Capaian per anggota' }}</h3><span class="s-card-sub">% dari target periode (tanggal acuan {{ $ref->translatedFormat('d M Y') }})</span></div>
                 <div class="s-card-body"><div class="chart-box tall"><canvas id="cvTarget"></canvas></div></div>
             </div>
         </div>
         @if ($mode === 'all' && $departmentRows)
-            <div class="col-12 col-xl-5">
+            <div class="col-12 col-xl-7">
                 <div class="s-card h-100">
-                    <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-diagram-3"></i>Per departemen</h3></div>
+                    <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-diagram-3"></i>Target per departemen</h3><span class="s-card-sub">Total target vs realisasi periode berjalan</span></div>
                     <div class="table-responsive"><table class="table table-ssap mb-0">
-                        <thead><tr><th>Departemen</th><th class="num">Karyawan</th><th class="num">Tercapai</th><th class="num">Belum</th><th class="num">%</th></tr></thead>
+                        <thead><tr><th>Departemen</th><th class="num">Orang</th><th class="num">Hazard<br><small class="fw-normal">real / target</small></th><th class="num">Inspeksi<br><small class="fw-normal">real / target</small></th><th class="num">Tercapai</th><th class="num">Capaian</th></tr></thead>
                         <tbody>@foreach ($departmentRows as $d)
-                            <tr class="row-link" data-href="{{ route('ssap.targets', ['date' => $filters['date'], 'department' => $d['name'] === 'Tanpa departemen' ? '' : $d['name']]) }}"><td class="fw-semibold">{{ $d['name'] }}</td><td class="num">{{ $d['members'] }}</td><td class="num">{{ $d['achieved'] }}</td><td class="num">{!! $d['behind'] ? '<span class="pill pill-danger">'.$d['behind'].'</span>' : '-' !!}</td><td class="num"><span class="pill pill-{{ $pctTone($d['pct']) }}">{{ $d['pct'] }}%</span></td></tr>
+                            <tr class="row-link" data-href="{{ route('ssap.targets', ['date' => $filters['date'], 'department' => $d['name'] === 'Tanpa departemen' ? '' : $d['name']]) }}">
+                                <td class="fw-semibold">{{ $d['name'] }}</td>
+                                <td class="num">{{ $d['members'] }}</td>
+                                <td class="num">{{ $d['hazard'] }} / {{ $d['target_hazard'] }}</td>
+                                <td class="num">{{ $d['target_inspection'] ? $d['inspection'].' / '.$d['target_inspection'] : '-' }}</td>
+                                <td class="num">{{ $d['achieved'] }} <span class="text-muted">({{ $d['pct'] }}%)</span>@if ($d['behind'])<div class="small text-danger">{{ $d['behind'] }} belum</div>@endif</td>
+                                <td class="num">@if ($d['volume_pct'] !== null)<span class="pill pill-{{ $pctTone($d['volume_pct']) }}">{{ $d['volume_pct'] }}%</span>@else - @endif</td>
+                            </tr>
                         @endforeach</tbody>
                     </table></div>
                 </div>
@@ -95,7 +102,7 @@
     </div>
 
     <div class="s-card mb-3">
-        <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-lines-fill"></i>{{ $filters['only'] === 'behind' ? 'Anggota yang belum mencapai target' : 'Capaian per anggota' }}</h3><span class="s-card-sub">{{ count($rows) }} orang</span></div>
+        <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-lines-fill"></i>{{ $filters['only'] === 'behind' ? 'Anggota yang belum mencapai target' : 'Capaian per anggota' }}</h3><span class="s-card-sub">{{ $pager->total() }} orang @if ($pager->hasPages()) &middot; halaman {{ $pager->currentPage() }} dari {{ $pager->lastPage() }}@endif</span></div>
         <div class="table-responsive">
             <table class="table table-ssap table-board table-fit mb-0">
                 <thead><tr><th>Karyawan</th><th class="d-none d-md-table-cell">Departemen / atasan</th><th class="num d-none d-md-table-cell">Grade</th><th class="d-none d-md-table-cell">Periode</th><th class="num">Hazard</th><th class="num">Inspeksi</th><th class="num">Capaian</th><th class="d-none d-md-table-cell">Status</th></tr></thead>
@@ -117,6 +124,7 @@
                 </tbody>
             </table>
         </div>
+        @if ($pager->hasPages())<div class="p-3 border-top">{{ $pager->links() }}</div>@endif
     </div>
 @endif
 @endsection
@@ -124,7 +132,7 @@
 @if ($mode !== 'self')
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{{ asset('assets/js/ssap-charts.js') }}?v=8"></script>
+<script src="{{ asset('assets/js/ssap-charts.js') }}?v=9"></script>
 <script>document.addEventListener('DOMContentLoaded', function () { window.SSAPCharts && window.SSAPCharts(@json($charts)); });</script>
 @endpush
 @endif

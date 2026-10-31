@@ -69,8 +69,8 @@ trait ManagesRecords
         ];
     }
 
-    /** Simpan berkas unggahan ke penyimpanan privat. Kembali: jumlah berkas tersimpan. */
-    protected function storeAttachments(Model $record, string $type, Request $request, string $field = 'files'): int
+    /** Simpan berkas unggahan ke penyimpanan privat. $phase: before/after untuk foto hazard. Kembali: jumlah berkas tersimpan. */
+    protected function storeAttachments(Model $record, string $type, Request $request, string $field = 'files', ?string $phase = null): int
     {
         $count = 0;
 
@@ -83,6 +83,7 @@ trait ManagesRecords
                 'path' => $file->store("attachments/{$type}/{$record->getKey()}", 'local'),
                 'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
                 'mime' => $file->getMimeType(),
+                'phase' => $phase,
                 'size' => $file->getSize(),
                 'uploaded_by' => portal_user()?->name,
             ]);

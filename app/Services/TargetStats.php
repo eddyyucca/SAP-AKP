@@ -123,30 +123,50 @@ class TargetStats
         return $rows;
     }
 
-    /** Ringkasan per departemen dari baris rows(). @return list<array<string, mixed>> */
+    /**
+     * Ringkasan per departemen dari baris rows(): jumlah karyawan, yang sudah tercapai, dan total target vs realisasi
+     * (realisasi dihitung paling banyak sebesar targetnya per orang, supaya kelebihan satu orang tidak menutup kekurangan orang lain).
+     *
+     * @return list<array<string, mixed>>
+     */
     public function byDepartment(array $rows): array
     {
         return collect($rows)->groupBy(fn ($r) => $r['department'] ?: 'Tanpa departemen')->map(function ($g, $dept) {
             $ok = $g->where('achieved', true)->count();
+            $tH = (int) $g->sum('target_hazard');
+            $tI = (int) $g->sum('target_inspection');
+            $aH = (int) $g->sum(fn ($r) => min($r['hazard'], $r['target_hazard']));
+            $aI = (int) $g->sum(fn ($r) => min($r['inspection'], $r['target_inspection']));
 
             return [
                 'name' => $dept, 'members' => $g->count(), 'achieved' => $ok, 'behind' => $g->count() - $ok,
                 'pct' => (int) round($ok * 100 / max(1, $g->count())),
+                'target_hazard' => $tH, 'hazard' => $aH, 'target_inspection' => $tI, 'inspection' => $aI,
+                'target_total' => $tH + $tI, 'actual_total' => $aH + $aI,
+                'volume_pct' => $tH + $tI > 0 ? (int) round(($aH + $aI) * 100 / ($tH + $tI)) : null,
             ];
-        })->sortBy([['pct', 'asc'], ['name', 'asc']])->values()->all();
+        })->sortBy([['volume_pct', 'asc'], ['name', 'asc']])->values()->all();
     }
 
     /** Data grafik: capaian (%) per departemen, atau per anggota bila hanya satu tim/departemen. */
     public function chart(array $rows, bool $byDepartment): array
     {
-        $items = $byDepartment
-            ? collect($this->byDepartment($rows))->map(fn ($d) => ['label' => $d['name'], 'pct' => $d['pct']])
-            : collect($rows)->map(fn ($r) => ['label' => $r['name'], 'pct' => $r['pct']]);
+        if ($byDepartment) {
+            $d = collect($this->byDepartment($rows))->take(25);
+
+            return [
+                'labels' => $d->pluck('name')->all(), 'by_department' => true,
+                'pct' => $d->pluck('volume_pct')->map(fn ($v) => $v ?? 0)->all(),
+                'target' => $d->pluck('target_total')->all(), 'actual' => $d->pluck('actual_total')->all(),
+            ];
+        }
+
+        $items = collect($rows)->map(fn ($r) => ['label' => $r['name'], 'pct' => $r['pct']]);
 
         return [
             'labels' => $items->pluck('label')->take(25)->all(),
             'pct' => $items->pluck('pct')->take(25)->all(),
-            'by_department' => $byDepartment,
+            'by_department' => false,
         ];
     }
 }

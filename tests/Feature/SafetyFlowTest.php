@@ -78,6 +78,7 @@ class SafetyFlowTest extends TestCase
         $this->assertStringStartsWith('Kabel terkelupas', $hazard->title);   // ringkasan dari keterangan
         $this->assertSame(now()->addDays(config('ssap.hazard_sla_days'))->toDateString(), $hazard->due_date->toDateString());
         $this->assertSame(1, $hazard->attachments()->count());
+        $this->assertSame('before', $hazard->attachments->first()->phase);   // foto saat dilaporkan = sebelum
         Storage::disk('local')->assertExists($hazard->attachments->first()->path);
 
         $this->as('user')->get('/ssap/hazard')->assertOk()->assertSee($hazard->number);
@@ -130,7 +131,8 @@ class SafetyFlowTest extends TestCase
         $this->assertSame('Kabel diganti oleh tim maintenance', $hazard->closure_note);
         $this->assertNotNull($hazard->closed_at);
         $this->assertSame(1, $hazard->attachments()->count());
-        $this->as('hse')->get('/ssap/hazard/'.$hazard->id)->assertOk()->assertSee('Kabel diganti oleh tim maintenance');
+        $this->assertSame('after', $hazard->attachments->first()->phase);    // foto saat mencatat perbaikan = sesudah
+        $this->as('hse')->get('/ssap/hazard/'.$hazard->id)->assertOk()->assertSee('Kabel diganti oleh tim maintenance')->assertSee('Foto sebelum')->assertSee('Foto sesudah')->assertSee('Sesudah');
 
         // Perbaikan belum tuntas: pelapor membuka kembali; HSE tidak bisa.
         $this->as('hse')->post("/ssap/hazard/{$hazard->id}/status", ['to' => 'open'])->assertForbidden();

@@ -58,7 +58,7 @@
             <div class="s-card-body">
                 @if ($hazard->status === 'closed')
                     <div class="mb-2" style="white-space:pre-line;">{{ $hazard->closure_note }}</div>
-                    <div class="small text-muted">Dicatat oleh {{ $hazard->closed_by }} pada {{ $hazard->closed_at?->translatedFormat('d F Y H:i') }}. Foto bukti ada di bagian Lampiran.</div>
+                    <div class="small text-muted">Dicatat oleh {{ $hazard->closed_by }} pada {{ $hazard->closed_at?->translatedFormat('d F Y H:i') }}. Foto sebelum dan sesudah ada di bagian Foto & dokumen.</div>
                     @if ($canClose)
                         <form method="POST" action="{{ route('ssap.hazards.resolve', $hazard) }}" class="mt-3 no-print d-flex gap-2" data-confirm="Buka kembali hazard ini?">
                             @csrf
@@ -75,7 +75,7 @@
                         @error('note')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
                         @error('to')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
                         <div class="row g-2 align-items-start">
-                            <div class="col-12 col-md-6"><input type="file" name="files[]" class="form-control form-control-sm" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" title="Foto bukti perbaikan"></div>
+                            <div class="col-12 col-md-6"><input type="file" name="files[]" class="form-control form-control-sm" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" title="Foto sesudah perbaikan"><div class="form-text">Foto sesudah perbaikan (bukti)</div></div>
                             <div class="col-12 col-md-6 d-flex gap-2 justify-content-md-end">
                                 @if ($hazard->status === 'open')<button name="to" value="in_progress" class="btn btn-outline-warning btn-sm"><i class="bi bi-hourglass-split me-1"></i>Sedang diperbaiki</button>@endif
                                 <button name="to" value="closed" class="btn btn-success btn-sm" onclick="return confirm('Catat tindakan perbaikan dan tutup hazard ini?')"><i class="bi bi-check2-circle me-1"></i>Selesai &amp; tutup</button>

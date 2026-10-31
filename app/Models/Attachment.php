@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Storage;
 
 class Attachment extends Model
 {
-    protected $fillable = ['path', 'original_name', 'mime', 'size', 'uploaded_by'];
+    protected $fillable = ['path', 'original_name', 'mime', 'phase', 'size', 'uploaded_by'];
 
     public function attachable()
     {
