@@ -58,7 +58,7 @@ class TargetTest extends TestCase
         ]);
     }
 
-    public function test_grade_3_and_4_see_only_their_own_reports(): void
+    public function test_grade_3_sees_only_their_own_reports(): void
     {
         $mine = $this->hazard('301');
         $teammate = $this->hazard('401');
@@ -118,6 +118,47 @@ class TargetTest extends TestCase
         $this->as('600')->get('/ssap/target?department=Logistik&only=behind')->assertOk()->assertSee('Anggota Lain')->assertDontSee('Anggota Tiga');
         $this->as('600')->get('/ssap/target?date=2026-13-40')->assertSessionHasErrors('date');
         $this->as('600')->get('/ssap/target?date='.now()->subWeek()->toDateString())->assertOk()->assertSee('Anggota Lain');
+    }
+
+    public function test_each_level_sees_the_levels_below_it(): void
+    {
+        // 600 (g6) > 500 (g5) > 401 (g4) > 301 (g3); 302 (g3) di bawah 501 (g5) lain.
+        $emp = fn ($nik, $name, $grade, $boss) => ['employee_no' => $nik, 'name' => $name, 'department' => 'Produksi', 'is_active' => true, 'grade' => $grade, 'supervisor_nik' => $boss];
+        config(['hris.url' => 'http://hris-hirarki.test']);
+        Http::fake(['hris-hirarki.test/*' => Http::response(['data' => [
+            $emp('600', 'Level Enam', 6, null), $emp('500', 'Level Lima', 5, '600'), $emp('401', 'Level Empat', 4, '500'),
+            $emp('301', 'Level Tiga A', 3, '401'), $emp('302', 'Level Tiga B', 3, '501'), $emp('501', 'Lima Lain', 5, '600'),
+        ], 'meta' => ['current_page' => 1, 'last_page' => 1, 'total' => 6]])]);
+        \Illuminate\Support\Facades\Cache::flush();
+
+        $h3 = $this->hazard('301');
+        $other = $this->hazard('302');
+        $h4 = $this->hazard('401');
+
+        // Grade 4 melihat grade 3 di bawahnya (target dan hazardnya), bukan grade 3 milik atasan lain.
+        $this->as('401')->get('/ssap/target')->assertOk()->assertSee('Target Tim')->assertSee('Level Tiga A')->assertDontSee('Level Tiga B')->assertDontSee('Lima Lain');
+        $this->as('401')->get('/ssap/hazard')->assertOk()->assertSee($h3->number)->assertSee($h4->number)->assertDontSee($other->number);
+
+        // Grade 5 melihat grade 4 dan 3 di bawahnya.
+        $this->as('500')->get('/ssap/target')->assertOk()->assertSee('Level Empat')->assertSee('Level Tiga A')->assertDontSee('Level Tiga B');
+        $this->as('500')->get('/ssap/hazard')->assertOk()->assertSee($h3->number)->assertSee($h4->number)->assertDontSee($other->number);
+
+        // Grade 3 hanya dirinya; grade 6 semuanya.
+        $this->as('301')->get('/ssap/target')->assertOk()->assertSee('Target Saya')->assertDontSee('Level Empat');
+        $this->as('301')->get('/ssap/hazard/'.$h4->id)->assertForbidden();
+        $this->as('600')->get('/ssap/target')->assertOk()->assertSee('Level Tiga B')->assertSee('Level Empat')->assertSee('Lima Lain');
+    }
+
+    public function test_a_person_can_be_found_by_name_or_nik(): void
+    {
+        // Pencarian nama (sebagian, tanpa peduli huruf besar/kecil) dan NIK; hanya dalam cakupan yang boleh dilihat.
+        $this->as('600')->get('/ssap/target?q=anggota+tiga')->assertOk()->assertSee('Anggota Tiga')->assertDontSee('Anggota Empat')->assertDontSee('Anggota Lain');
+        $this->as('600')->get('/ssap/target?q=302')->assertOk()->assertSee('Anggota Lain')->assertDontSee('Anggota Tiga');
+        $this->as('600')->get('/ssap/target?q=tidakada')->assertOk()->assertSee('Tidak ada anggota yang cocok');
+
+        // Grade 5 hanya menemukan anggotanya: 302 bukan bawahan 500.
+        $this->as('500')->get('/ssap/target?q=302')->assertOk()->assertDontSee('Anggota Lain')->assertSee('Tidak ada anggota yang cocok');
+        $this->as('500')->get('/ssap/target?q=301')->assertOk()->assertSee('Anggota Tiga');
     }
 
     public function test_the_member_list_is_paginated_and_departments_show_target_vs_actual(): void

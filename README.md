@@ -31,13 +31,13 @@ Contoh: grade 3, per minggu, hazard 2 = tiap karyawan grade 3 membuat 2 laporan 
 
 | Grade | Yang dilihat |
 |---|---|
-| 3 dan 4 | hanya miliknya sendiri |
-| 5 | dirinya dan seluruh bawahan (langsung maupun tidak langsung) |
+| 3 | hanya miliknya sendiri |
+| 4 dan 5 | dirinya dan seluruh bawahan (langsung maupun tidak langsung): grade 4 melihat grade 3, grade 5 melihat grade 3-4 |
 | 6 ke atas (kepala departemen) | seluruh departemen dan targetnya |
 
 Menu **Target Saya / Tim / Departemen** menampilkan capaian periode, siapa yang belum memenuhi target, dan grafik per departemen; admin, HSE, dan manajer melihat seluruh departemen.
 Hazard yang dihitung adalah laporan yang dibuat sendiri; temuan otomatis dari inspeksi tidak dihitung. Ringkasan harian HSE memuat jumlah karyawan yang belum mencapai target (mulai Kamis untuk target mingguan, tanggal 20 untuk bulanan).
-Bila grade tidak terbaca dari HRIS, pengguna diperlakukan seperti grade 3-4 (hanya miliknya sendiri). Data demo menyertakan hierarki rekaan di cache HRIS (hanya terbaca bila `HRIS_API_URL`/`HRIS_API_TOKEN` terisi).
+Bila grade tidak terbaca dari HRIS, pengguna diperlakukan seperti grade 3 (hanya miliknya sendiri). Data demo menyertakan hierarki rekaan di cache HRIS (hanya terbaca bila `HRIS_API_URL`/`HRIS_API_TOKEN` terisi).
 
 ### Definisi indikator
 

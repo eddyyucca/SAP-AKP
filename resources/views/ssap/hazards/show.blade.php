@@ -14,7 +14,7 @@
 <div class="s-card mb-3">
     <div class="s-card-body pt-3">
         <div class="d-flex flex-wrap justify-content-between gap-3">
-            <div style="min-width:0;flex:1;">
+            <div style="min-width:0;flex:1 1 280px;">
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
                     <x-cat :category="$hazard->category" :long="true" />
                     <x-pill :meta="$hazard->statusMeta()" />
@@ -74,8 +74,9 @@
                         <textarea name="note" rows="3" class="form-control form-control-sm mb-2 @error('note') is-invalid @enderror" maxlength="3000" placeholder="Tindakan perbaikan yang sudah dilakukan (wajib untuk menutup)">{{ old('note') }}</textarea>
                         @error('note')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
                         @error('to')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
+                        <label class="form-label small fw-semibold mb-1" for="fotoSesudah"><i class="bi bi-camera text-success me-1"></i>Foto sesudah perbaikan <span class="fw-normal text-muted">(bukti, disarankan)</span></label>
                         <div class="row g-2 align-items-start">
-                            <div class="col-12 col-md-6"><input type="file" name="files[]" class="form-control form-control-sm" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" title="Foto sesudah perbaikan"><div class="form-text">Foto sesudah perbaikan (bukti)</div></div>
+                            <div class="col-12 col-md-6"><input type="file" id="fotoSesudah" name="files[]" class="form-control form-control-sm" multiple accept=".jpg,.jpeg,.png,.webp,.pdf"><div class="form-text">Foto kondisi setelah diperbaiki, supaya bisa dibandingkan dengan foto sebelum.</div></div>
                             <div class="col-12 col-md-6 d-flex gap-2 justify-content-md-end">
                                 @if ($hazard->status === 'open')<button name="to" value="in_progress" class="btn btn-outline-warning btn-sm"><i class="bi bi-hourglass-split me-1"></i>Sedang diperbaiki</button>@endif
                                 <button name="to" value="closed" class="btn btn-success btn-sm" onclick="return confirm('Catat tindakan perbaikan dan tutup hazard ini?')"><i class="bi bi-check2-circle me-1"></i>Selesai &amp; tutup</button>

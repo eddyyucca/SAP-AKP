@@ -17,6 +17,7 @@ class TargetController extends Controller
             'date' => ['nullable', 'date_format:Y-m-d'],
             'department' => ['nullable', 'string', 'max:120'],
             'only' => ['nullable', 'in:behind'],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
 
         $ref = Carbon::createFromFormat('Y-m-d', $data['date'] ?? now()->toDateString())->startOfDay();
@@ -42,6 +43,13 @@ class TargetController extends Controller
 
         // Daftar anggota dipecah per halaman (departemen besar bisa ratusan orang); ringkasan dan grafik tetap memakai seluruh data.
         $list = $showBehind ? $view->where('achieved', false)->values() : $view;
+
+        // Cari anggota berdasarkan nama atau NIK (potongan kata, tanpa peduli huruf besar/kecil).
+        $q = trim((string) ($data['q'] ?? ''));
+        if ($q !== '') {
+            $needle = mb_strtolower($q);
+            $list = $list->filter(fn ($r) => str_contains(mb_strtolower($r['name']), $needle) || str_contains(mb_strtolower($r['nik']), $needle))->values();
+        }
         $perPage = 25;
         $pager = new LengthAwarePaginator(
             $list->forPage(max(1, (int) $request->query('page', 1)), $perPage)->values(),
@@ -60,7 +68,7 @@ class TargetController extends Controller
             'summary' => $summary,
             'departmentRows' => $scope['mode'] === 'all' ? $stats->byDepartment($view->all()) : [],
             'departments' => $departments,
-            'filters' => ['date' => $ref->toDateString(), 'department' => $data['department'] ?? '', 'only' => $data['only'] ?? ''],
+            'filters' => ['date' => $ref->toDateString(), 'department' => $data['department'] ?? '', 'only' => $data['only'] ?? '', 'q' => $q],
             'charts' => ['target' => $stats->chart($view->all(), $byDepartment)],
         ]);
     }

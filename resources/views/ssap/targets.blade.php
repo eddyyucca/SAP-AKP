@@ -19,7 +19,7 @@
 <div class="alert {{ $scope['grade'] === null ? 'alert-warning' : 'alert-success' }} small mb-3">
     <i class="bi bi-person-badge me-1"></i>
     @if ($scope['grade'] === null)
-        <strong>Grade Anda belum terbaca dari HRIS</strong>, jadi Anda diperlakukan seperti grade 3-4 dan hanya melihat target Anda sendiri. Pastikan NIK Portal Anda sama dengan NIK di HRIS dan grade Anda sudah diisi.
+        <strong>Grade Anda belum terbaca dari HRIS</strong>, jadi Anda diperlakukan seperti grade 3 dan hanya melihat target Anda sendiri. Pastikan NIK Portal Anda sama dengan NIK di HRIS dan grade Anda sudah diisi.
     @else
         <strong>Terdeteksi dari HRIS: Grade {{ $scope['grade'] }}@if (! empty($me['position'])) &middot; {{ $me['position'] }}@endif</strong>
         @if ($mode === 'all')
@@ -27,7 +27,7 @@
         @elseif ($mode === 'team')
             &mdash; Anda dapat melihat <strong>target Anda dan setiap anggota tim</strong> ({{ max(0, count($scope['niks']) - 1) }} bawahan menurut atasan langsung di HRIS).@if (count($scope['niks']) <= 1) <span class="text-danger">Belum ada bawahan terdaftar; minta HR mengisi atasan langsung di HRIS.</span>@endif
         @else
-            &mdash; grade 3-4 hanya melihat target sendiri. Grade 5 ke atas dapat melihat target tim dan anggota.
+            &mdash; grade 3 hanya melihat target sendiri. Grade 4 ke atas dapat melihat target bawahannya (grade 4 melihat grade 3, grade 5 melihat grade 3-4, dan seterusnya).
         @endif
     @endif
 </div>
@@ -43,6 +43,9 @@
 
 <form method="GET" class="s-card p-3 mb-3 filter-bar">
     <div class="row g-2 align-items-end">
+        @if ($mode !== 'self')
+            <div class="col-12 col-md-6 col-xl-3"><label class="form-label small mb-1" for="q">Cari nama atau NIK</label><input type="search" name="q" id="q" value="{{ $filters['q'] }}" class="form-control form-control-sm" placeholder="mis. Budi atau 99000002" maxlength="100"></div>
+        @endif
         <div class="col-6 col-md-3 col-xl-2"><label class="form-label small mb-1">Periode memuat tanggal</label><input type="date" name="date" value="{{ $filters['date'] }}" max="{{ now()->toDateString() }}" class="form-control form-control-sm"></div>
         @if ($mode === 'all')
             <div class="col-6 col-md-4 col-xl-3"><label class="form-label small mb-1">Departemen</label>
@@ -56,9 +59,9 @@
         @endif
         <div class="col-12 col-md-auto d-flex gap-2">
             <button class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i>Terapkan</button>
-            <a href="{{ route('ssap.targets') }}" class="btn btn-outline-secondary btn-sm">Sekarang</a>
-            <a href="{{ route('ssap.targets', ['date' => now()->subWeek()->toDateString()] + array_filter(['department' => $filters['department'] ?? null])) }}" class="btn btn-outline-secondary btn-sm">Minggu lalu</a>
-            <a href="{{ route('ssap.targets', ['date' => now()->subMonthNoOverflow()->toDateString()] + array_filter(['department' => $filters['department'] ?? null])) }}" class="btn btn-outline-secondary btn-sm">Bulan lalu</a>
+            <a href="{{ route('ssap.targets') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+            <a href="{{ route('ssap.targets', ['date' => now()->subWeek()->toDateString()] + array_filter(['department' => $filters['department'] ?? null, 'q' => $filters['q'] ?? null])) }}" class="btn btn-outline-secondary btn-sm">Minggu lalu</a>
+            <a href="{{ route('ssap.targets', ['date' => now()->subMonthNoOverflow()->toDateString()] + array_filter(['department' => $filters['department'] ?? null, 'q' => $filters['q'] ?? null])) }}" class="btn btn-outline-secondary btn-sm">Bulan lalu</a>
         </div>
     </div>
 </form>
@@ -121,7 +124,7 @@
     </div>
 
     <div class="s-card mb-3">
-        <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-lines-fill"></i>{{ $filters['only'] === 'behind' ? 'Anggota yang belum mencapai target' : 'Capaian per anggota' }}</h3><span class="s-card-sub">{{ $pager->total() }} orang @if ($pager->hasPages()) &middot; halaman {{ $pager->currentPage() }} dari {{ $pager->lastPage() }}@endif</span></div>
+        <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-person-lines-fill"></i>{{ $filters['only'] === 'behind' ? 'Anggota yang belum mencapai target' : 'Capaian per anggota' }}@if ($filters['q'] !== '') <span class="fw-normal text-muted">&middot; hasil &ldquo;{{ $filters['q'] }}&rdquo;</span>@endif</h3><span class="s-card-sub">{{ $pager->total() }} orang @if ($pager->hasPages()) &middot; halaman {{ $pager->currentPage() }} dari {{ $pager->lastPage() }}@endif</span></div>
         <div class="table-responsive">
             <table class="table table-ssap table-board table-fit mb-0">
                 <thead><tr><th>Karyawan</th><th class="d-none d-md-table-cell">Departemen / atasan</th><th class="num d-none d-md-table-cell">Grade</th><th class="d-none d-md-table-cell">Periode</th><th class="num">Hazard</th><th class="num">Inspeksi</th><th class="num">Capaian</th><th class="d-none d-md-table-cell">Status</th></tr></thead>
@@ -138,7 +141,7 @@
                         <td class="d-none d-md-table-cell"><span class="pill pill-{{ $r['achieved'] ? 'success' : 'danger' }}">{{ $r['achieved'] ? 'Tercapai' : 'Belum' }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="8"><div class="empty-state py-4"><i class="bi bi-people"></i>{{ $summary['members'] ? 'Semua anggota sudah mencapai target.' : 'Tidak ada karyawan bertarget yang dapat dilihat. Pastikan HRIS tersambung dan atasan langsung terisi.' }}</div></td></tr>
+                    <tr><td colspan="8"><div class="empty-state py-4"><i class="bi bi-people"></i>{{ $filters['q'] !== '' ? 'Tidak ada anggota yang cocok dengan pencarian.' : ($summary['members'] ? 'Semua anggota sudah mencapai target.' : 'Tidak ada karyawan bertarget yang dapat dilihat. Pastikan HRIS tersambung dan atasan langsung terisi.') }}</div></td></tr>
                 @endforelse
                 </tbody>
             </table>

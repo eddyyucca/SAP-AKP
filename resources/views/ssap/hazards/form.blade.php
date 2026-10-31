@@ -62,7 +62,7 @@
                         <div class="col-12 col-md-6"><label class="form-label" for="suggestion">Saran perbaikan</label><textarea name="suggestion" id="suggestion" rows="2" class="form-control" maxlength="3000">{{ old('suggestion', $hazard->suggestion) }}</textarea></div>
                     </div>
 
-                    <div class="section-h">2. Foto sebelum (kondisi temuan)</div>
+                    <div class="section-h">2. Foto sebelum (kondisi saat ditemukan)</div>
                     <input type="file" name="files[]" id="files" class="form-control" multiple accept=".jpg,.jpeg,.png,.webp,.pdf">
                     <div class="form-text">Foto kondisi saat ditemukan sangat membantu; foto sesudah perbaikan diunggah nanti saat mencatat tindakan perbaikan. Maksimal {{ config('ssap.attachments.max_files') }} berkas, {{ config('ssap.attachments.max_kb') / 1024 }} MB per berkas.</div>
                     @error('files')<div class="text-danger small">{{ $message }}</div>@enderror

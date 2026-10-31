@@ -38,8 +38,8 @@ class Access
     /**
      * Cakupan data menurut jabatan di HRIS:
      *  all  = admin/HSE/manajer, atau grade 6+ (kepala departemen): seluruh departemen
-     *  team = grade 5: dirinya dan seluruh bawahan (menurut atasan langsung di HRIS)
-     *  self = grade 3-4 dan lainnya: hanya miliknya sendiri
+     *  team = grade 4-5: dirinya dan seluruh bawahan (menurut atasan langsung di HRIS), mis. grade 4 melihat grade 3, grade 5 melihat grade 3-4
+     *  self = grade 3 dan lainnya: hanya miliknya sendiri
      *
      * @return array{mode:string,grade:?int,nik:?string,niks:list<string>}
      */
@@ -59,7 +59,7 @@ class Access
         $scope = match (true) {
             $user === null => ['mode' => 'self', 'niks' => []],
             self::canViewAll($user) || ($grade !== null && $grade >= 6) => ['mode' => 'all', 'niks' => []],
-            $grade === 5 && $nik !== null => ['mode' => 'team', 'niks' => array_merge([$nik], app(HrisEmployees::class)->subordinateNiks($nik))],
+            $grade !== null && $grade >= 4 && $nik !== null => ['mode' => 'team', 'niks' => array_merge([$nik], app(HrisEmployees::class)->subordinateNiks($nik))],
             default => ['mode' => 'self', 'niks' => $nik ? [$nik] : []],
         };
         $scope += ['grade' => $grade, 'nik' => $nik];
