@@ -4,12 +4,11 @@ namespace App\Services;
 
 use App\Models\CorrectiveAction;
 use App\Models\Hazard;
-use App\Models\Incident;
 use App\Models\Setting;
-use App\Support\Risk;
+use Illuminate\Support\Str;
 
 /**
- * Notifikasi email SAP Safety lewat AKP Mail. Setiap metode aman dipanggil di alur bisnis:
+ * Notifikasi email SAP lewat AKP Mail. Setiap metode aman dipanggil di alur bisnis:
  * galat apa pun ditelan dan dilaporkan ke log, tidak pernah menggagalkan penyimpanan laporan.
  */
 class Notifier
@@ -18,103 +17,17 @@ class Notifier
     {
     }
 
-    public function incidentReported(Incident $incident): void
-    {
-        $this->safely(function () use ($incident) {
-            $meta = $incident->typeMeta();
-            $severe = in_array($incident->type, config('ssap.severe_types', []), true);
-
-            $to = array_merge(Setting::emails('notify_hse'), Setting::emails('notify_manager'));
-            if ($severe) {
-                $to = array_merge($to, Setting::emails('notify_severe'));
-            }
-
-            $this->deliver(
-                $to,
-                ($severe ? '[SEGERA] ' : '').'Laporan insiden '.$incident->number.' - '.$meta['label'],
-                $severe ? 'INSIDEN BERAT DILAPORKAN' : 'Laporan insiden baru',
-                'Laporan insiden baru memerlukan penanganan HSE. Segera tentukan investigator dan batas waktu investigasi.',
-                $this->incidentRows($incident),
-                route('ssap.incidents.show', $incident),
-                $severe ? '#b91c1c' : '#203868',
-                'incident',
-                $incident->number,
-            );
-
-            if (Setting::value('notify_reporter') === '1') {
-                $this->deliver(
-                    [$incident->reporter_email],
-                    'Laporan Anda diterima: '.$incident->number,
-                    'Laporan insiden diterima',
-                    'Terima kasih sudah melapor. Laporan Anda sudah diterima tim HSE dan akan ditindaklanjuti. Anda akan mendapat kabar saat statusnya berubah.',
-                    $this->incidentRows($incident),
-                    route('ssap.incidents.show', $incident),
-                    '#203868',
-                    'incident',
-                    $incident->number,
-                    'Yth. '.$incident->reporter_name.',',
-                );
-            }
-        });
-    }
-
-    public function incidentStatusChanged(Incident $incident, string $note = ''): void
-    {
-        $this->safely(function () use ($incident, $note) {
-            $status = $incident->statusMeta()['label'];
-            $rows = ['Nomor' => $incident->number, 'Judul' => $incident->title, 'Status baru' => $status, 'Catatan' => $note];
-
-            $this->deliver(
-                [$incident->reporter_email, $incident->investigator_email],
-                'Status laporan '.$incident->number.': '.$status,
-                'Status laporan insiden berubah',
-                "Laporan {$incident->number} kini berstatus {$status}.",
-                $rows,
-                route('ssap.incidents.show', $incident),
-                $incident->status === 'closed' ? '#15803d' : '#203868',
-                'incident',
-                $incident->number,
-            );
-        });
-    }
-
-    public function investigatorAssigned(Incident $incident): void
-    {
-        $this->safely(function () use ($incident) {
-            $this->deliver(
-                [$incident->investigator_email],
-                'Anda ditugaskan menginvestigasi '.$incident->number,
-                'Penugasan investigasi',
-                'Anda ditunjuk sebagai investigator laporan berikut. Mohon selesaikan investigasi sebelum batas waktu.',
-                $this->incidentRows($incident) + ['Batas investigasi' => $incident->investigation_due?->translatedFormat('d F Y')],
-                route('ssap.incidents.show', $incident),
-                '#ea580c',
-                'incident',
-                $incident->number,
-                'Yth. '.$incident->investigator_name.',',
-            );
-        });
-    }
-
     public function hazardReported(Hazard $hazard): void
     {
         $this->safely(function () use ($hazard) {
-            $risk = $hazard->riskMeta();
-            $high = in_array($hazard->risk_level, ['high', 'extreme'], true);
-
-            $to = Setting::emails('notify_hse');
-            if ($hazard->risk_level === 'extreme') {
-                $to = array_merge($to, Setting::emails('notify_manager'), Setting::emails('notify_severe'));
-            }
-
             $this->deliver(
-                $to,
-                ($high ? '['.mb_strtoupper($risk['label']).'] ' : '').'Hazard baru '.$hazard->number,
+                Setting::emails('notify_hse'),
+                'Hazard baru '.$hazard->number.' ('.strtoupper($hazard->category).')',
                 'Laporan hazard baru',
-                'Ada laporan bahaya (hazard) baru. Tetapkan PIC dan tenggat penyelesaian sesuai tingkat risikonya.',
+                'Ada laporan bahaya (hazard) baru. Tetapkan PIC dan tenggat penyelesaiannya.',
                 $this->hazardRows($hazard),
                 route('ssap.hazards.show', $hazard),
-                $risk['color'],
+                $hazard->categoryColor(),
                 'hazard',
                 $hazard->number,
             );
@@ -146,7 +59,7 @@ class Notifier
                 'Anda ditunjuk sebagai penanggung jawab (PIC) hazard berikut. Mohon selesaikan sebelum tenggat.',
                 $this->hazardRows($hazard) + ['Tenggat' => $hazard->due_date?->translatedFormat('d F Y')],
                 route('ssap.hazards.show', $hazard),
-                $hazard->riskMeta()['color'],
+                $hazard->categoryColor(),
                 'hazard',
                 $hazard->number,
                 'Yth. '.$hazard->pic_name.',',
@@ -165,7 +78,7 @@ class Notifier
                 $hazard->status === 'closed'
                     ? 'Hazard yang Anda laporkan sudah ditangani dan ditutup. Terima kasih atas kepedulian Anda.'
                     : 'Laporan hazard Anda tidak dilanjutkan. Alasannya tertera di bawah.',
-                ['Nomor' => $hazard->number, 'Judul' => $hazard->title, 'Status' => $status, 'Catatan' => $hazard->closure_note ?: $hazard->reject_reason],
+                ['Nomor' => $hazard->number, 'Keterangan' => Str::limit($hazard->description, 200), 'Status' => $status, 'Catatan' => $hazard->closure_note ?: $hazard->reject_reason],
                 route('ssap.hazards.show', $hazard),
                 '#15803d',
                 'hazard',
@@ -182,7 +95,7 @@ class Notifier
                 [$action->pic_email],
                 'Tindakan safety untuk Anda: '.$this->sourceNumber($action),
                 'Tindakan safety ditugaskan',
-                'Anda ditugaskan mengerjakan tindakan berikut. Mohon perbarui statusnya di SAP Safety saat dikerjakan dan selesai.',
+                'Anda ditugaskan mengerjakan tindakan berikut. Mohon perbarui statusnya di SAP saat dikerjakan dan selesai.',
                 $this->actionRows($action),
                 route('ssap.actions.index', ['view' => 'mine']),
                 '#ea580c',
@@ -229,7 +142,7 @@ class Notifier
         });
     }
 
-    /** Pengingat harian untuk tindakan yang jatuh tempo/terlambat. Kembali: jumlah email terkirim. */
+    /** Pengingat harian untuk tindakan yang jatuh tempo/terlambat. */
     public function remindAction(CorrectiveAction $action): void
     {
         $this->safely(function () use ($action) {
@@ -249,81 +162,14 @@ class Notifier
         });
     }
 
-    /** Kontraktor diminta menyampaikan LPI (insiden baru di areanya). */
-    public function lpiRequested(Incident $incident): void
-    {
-        $this->safely(function () use ($incident) {
-            $incident->loadMissing('contractor');
-            if (! $incident->contractor || ! $incident->lpi_due) {
-                return;
-            }
-
-            $this->deliver(
-                [$incident->contractor->pic_email],
-                'Mohon LPI insiden '.$incident->number.' - '.$incident->contractor->name,
-                'Permintaan LPI (Laporan Penyelidikan Insiden)',
-                'Terjadi insiden di area kerja perusahaan Anda. Mohon sampaikan LPI kepada tim HSE AKP paling lambat pada tanggal tenggat.',
-                $this->incidentRows($incident) + ['Kontraktor' => $incident->contractor->name, 'Tenggat LPI' => $incident->lpi_due->translatedFormat('d F Y')],
-                route('ssap.incidents.show', $incident),
-                '#ea580c',
-                'lpi',
-                $incident->number,
-                'Yth. '.($incident->contractor->pic_name ?: 'PIC Kontraktor').',',
-            );
-        });
-    }
-
-    /** Hasil tinjauan HSE atas LPI: disetujui atau perlu revisi. */
-    public function lpiReviewed(Incident $incident): void
-    {
-        $this->safely(function () use ($incident) {
-            $incident->loadMissing('contractor');
-            $revise = $incident->lpi_status === 'revision';
-
-            $this->deliver(
-                [$incident->contractor?->pic_email],
-                ($revise ? 'LPI perlu revisi: ' : 'LPI disetujui: ').$incident->number,
-                $revise ? 'LPI dikembalikan untuk revisi' : 'LPI disetujui',
-                $revise ? 'LPI Anda ditinjau dan perlu diperbaiki. Mohon kirim ulang LPI yang sudah direvisi.' : 'LPI Anda telah ditinjau dan disetujui. Terima kasih.',
-                ['Insiden' => $incident->number.' - '.$incident->title, 'Kontraktor' => $incident->contractor?->name, 'Nomor LPI' => $incident->lpi_number, 'Catatan HSE' => $incident->lpi_note, 'Ditinjau oleh' => $incident->lpi_reviewed_by],
-                route('ssap.incidents.show', $incident),
-                $revise ? '#ea580c' : '#15803d',
-                'lpi',
-                $incident->number,
-                'Yth. '.($incident->contractor?->pic_name ?: 'PIC Kontraktor').',',
-            );
-        });
-    }
-
-    public function lpiReminder(Incident $incident): void
-    {
-        $this->safely(function () use ($incident) {
-            $incident->loadMissing('contractor');
-            $late = $incident->lpiOverdue();
-
-            $this->deliver(
-                [$incident->contractor?->pic_email],
-                ($late ? '[TERLAMBAT] ' : '[Pengingat] ').'LPI insiden '.$incident->number,
-                $late ? 'LPI melewati tenggat' : 'Pengingat tenggat LPI',
-                $late ? 'LPI untuk insiden berikut sudah melewati tenggat. Mohon segera disampaikan kepada HSE AKP.' : 'Tenggat penyampaian LPI untuk insiden berikut sudah dekat.',
-                ['Insiden' => $incident->number.' - '.$incident->title, 'Kontraktor' => $incident->contractor?->name, 'Tenggat LPI' => $incident->lpi_due?->translatedFormat('d F Y'), 'Status' => $incident->lpiMeta()['label'] ?? '', 'Catatan HSE' => $incident->lpi_note],
-                route('ssap.incidents.show', $incident),
-                $late ? '#b91c1c' : '#ea580c',
-                'reminder',
-                $incident->number,
-                'Yth. '.($incident->contractor?->pic_name ?: 'PIC Kontraktor').',',
-            );
-        });
-    }
-
     /** Ringkasan harian untuk HSE: item yang butuh perhatian. */
     public function digest(array $stats): void
     {
         $this->safely(function () use ($stats) {
             $this->deliver(
                 Setting::emails('notify_hse'),
-                'Ringkasan harian SAP Safety - '.now()->translatedFormat('d F Y'),
-                'Ringkasan harian SAP Safety',
+                'Ringkasan harian SAP - '.now()->translatedFormat('d F Y'),
+                'Ringkasan harian SAP',
                 'Berikut hal-hal yang memerlukan perhatian HSE hari ini.',
                 $stats,
                 route('ssap.home'),
@@ -334,37 +180,16 @@ class Notifier
         });
     }
 
-    private function incidentRows(Incident $i): array
-    {
-        $i->loadMissing('location');
-
-        return [
-            'Nomor' => $i->number,
-            'Jenis' => $i->typeMeta()['label'],
-            'Keparahan' => $i->severity.' - '.$i->severityMeta()['label'],
-            'Judul' => $i->title,
-            'Waktu kejadian' => $i->occurred_at->translatedFormat('d F Y H:i'),
-            'Lokasi' => $i->location?->name.($i->area_detail ? ' - '.$i->area_detail : ''),
-            'Uraian' => \Illuminate\Support\Str::limit($i->description, 400),
-            'Dilaporkan oleh' => $i->reporter_name.($i->reporter_department ? ' ('.$i->reporter_department.')' : ''),
-        ];
-    }
-
     private function hazardRows(Hazard $h): array
     {
         $h->loadMissing('location');
-        $risk = $h->riskMeta();
-
         return [
             'Nomor' => $h->number,
-            'Kategori' => $h->categoryLabel(),
-            'Tingkat risiko' => $risk['label'].' (skor '.$h->risk_score.')',
-            'Judul' => $h->title,
+            'Jenis' => $h->categoryLabel(),
             'Lokasi' => $h->location?->name.($h->area_detail ? ' - '.$h->area_detail : ''),
-            'Uraian' => \Illuminate\Support\Str::limit($h->description, 400),
+            'Keterangan' => Str::limit($h->description, 400),
             'Dilaporkan oleh' => $h->reporter_name.($h->reporter_department ? ' ('.$h->reporter_department.')' : ''),
             'Tindakan segera' => $h->immediate_action,
-            'Arahan' => Risk::meta($h->risk_level)['action'],
         ];
     }
 

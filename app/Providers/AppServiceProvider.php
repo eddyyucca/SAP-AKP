@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use App\Models\Hazard;
-use App\Models\Incident;
 use App\Models\Inspection;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -21,7 +20,6 @@ class AppServiceProvider extends ServiceProvider
     {
         // Nama pendek tersimpan di kolom *_type (bukan nama kelas PHP), supaya data tidak terikat pada struktur kode.
         Relation::morphMap([
-            'incident' => Incident::class,
             'hazard' => Hazard::class,
             'inspection' => Inspection::class,
         ]);

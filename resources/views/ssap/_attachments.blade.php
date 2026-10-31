@@ -1,4 +1,4 @@
-{{-- Lampiran: $record (Incident/Hazard), $canManage --}}
+{{-- Lampiran: $record (Hazard/Inspection), $canManage --}}
 <div class="s-card mb-3">
     <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-paperclip"></i>Lampiran <span class="text-muted fw-normal">({{ $record->attachments->count() }})</span></h3></div>
     <div class="s-card-body">

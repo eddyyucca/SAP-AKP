@@ -3,9 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Hazard;
-use App\Models\Incident;
+use App\Models\Inspection;
 use App\Models\Location;
-use App\Models\ManHour;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,12 +14,12 @@ class LocationController extends Controller
 {
     public function index()
     {
-        $incidents = Incident::withTrashed()->selectRaw('location_id, count(*) as n')->groupBy('location_id')->pluck('n', 'location_id');
+        $inspections = Inspection::withTrashed()->selectRaw('location_id, count(*) as n')->groupBy('location_id')->pluck('n', 'location_id');
         $hazards = Hazard::withTrashed()->selectRaw('location_id, count(*) as n')->groupBy('location_id')->pluck('n', 'location_id');
 
         return view('ssap.locations.index', [
             'locations' => Location::ordered()->get(),
-            'incidents' => $incidents,
+            'inspections' => $inspections,
             'hazards' => $hazards,
         ]);
     }
@@ -52,12 +51,12 @@ class LocationController extends Controller
 
     public function destroy(Location $location): RedirectResponse
     {
-        $used = Incident::withTrashed()->where('location_id', $location->id)->exists()
+        $used = Inspection::withTrashed()->where('location_id', $location->id)->exists()
             || Hazard::withTrashed()->where('location_id', $location->id)->exists()
-            || ManHour::where('location_id', $location->id)->exists();
+            || \Illuminate\Support\Facades\DB::table('incidents')->where('location_id', $location->id)->exists();   // data modul insiden yang diarsipkan
 
         if ($used) {
-            return back()->with('error', 'Lokasi sudah dipakai oleh laporan atau jam kerja, jadi tidak bisa dihapus. Nonaktifkan saja.');
+            return back()->with('error', 'Lokasi sudah dipakai oleh hazard atau inspeksi, jadi tidak bisa dihapus. Nonaktifkan saja.');
         }
 
         $location->delete();

@@ -22,13 +22,13 @@
 <div class="s-card">
     <div class="table-responsive">
         <table class="table table-ssap mb-0 align-middle">
-            <thead><tr><th>Kode</th><th>Nama</th><th class="num">Insiden</th><th class="num">Hazard</th><th>Aktif</th><th></th></tr></thead>
+            <thead><tr><th>Kode</th><th>Nama</th><th class="num">Inspeksi</th><th class="num">Hazard</th><th>Aktif</th><th></th></tr></thead>
             <tbody>
             @forelse ($locations as $l)
                 <tr>
                     <td style="width:140px;"><input form="loc{{ $l->id }}" type="text" name="code" value="{{ $l->code }}" class="form-control form-control-sm" maxlength="20"></td>
                     <td><input form="loc{{ $l->id }}" type="text" name="name" value="{{ $l->name }}" class="form-control form-control-sm" maxlength="120"></td>
-                    <td class="num">{{ $incidents[$l->id] ?? 0 }}</td>
+                    <td class="num">{{ $inspections[$l->id] ?? 0 }}</td>
                     <td class="num">{{ $hazards[$l->id] ?? 0 }}</td>
                     <td><div class="form-check form-switch"><input form="loc{{ $l->id }}" class="form-check-input" type="checkbox" name="is_active" value="1" @checked($l->is_active)></div></td>
                     <td class="text-end text-nowrap">

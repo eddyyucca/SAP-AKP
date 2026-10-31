@@ -26,11 +26,20 @@
                 <div class="s-card-body pt-3">
                     <div class="section-h">1. Apa yang Anda temukan</div>
                     <div class="row g-3">
-                        <div class="col-12 col-md-6">
-                            <label class="form-label req" for="category">Kategori</label>
-                            <select name="category" id="category" class="form-select @error('category') is-invalid @enderror" required>
-                                @foreach (config('ssap.hazard_categories') as $k => $label)<option value="{{ $k }}" @selected(old('category', $hazard->category ?? 'unsafe_condition') === $k)>{{ $label }}</option>@endforeach
-                            </select>
+                        <div class="col-12">
+                            <label class="form-label req">Jenis hazard</label>
+                            <div class="row g-2">
+                                @foreach (config('ssap.hazard_categories') as $k => $label)
+                                    @php($checked = old('category', $hazard->category ?? 'kta') === $k)
+                                    <div class="col-12 col-sm-6">
+                                        <input type="radio" class="btn-check" name="category" id="cat_{{ $k }}" value="{{ $k }}" @checked($checked) required>
+                                        <label class="btn btn-outline-secondary w-100 text-start py-2" for="cat_{{ $k }}" style="--bs-btn-active-bg:{{ config('ssap.hazard_category_colors.'.$k) }};--bs-btn-active-border-color:{{ config('ssap.hazard_category_colors.'.$k) }};--bs-btn-hover-bg:{{ config('ssap.hazard_category_colors.'.$k) }};--bs-btn-hover-border-color:{{ config('ssap.hazard_category_colors.'.$k) }};">
+                                            <strong>{{ strtoupper($k) }}</strong> <span class="small">{{ $k === 'tta' ? 'Perilaku / tindakan orang yang tidak aman' : 'Kondisi lokasi, alat, atau lingkungan yang tidak aman' }}</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @error('category')<div class="text-danger small">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label req" for="observed_at">Waktu ditemukan</label>
@@ -45,23 +54,15 @@
                         </div>
                         <div class="col-12 col-md-6"><label class="form-label" for="area_detail">Detail area</label><input type="text" name="area_detail" id="area_detail" value="{{ old('area_detail', $hazard->area_detail) }}" class="form-control" maxlength="160" placeholder="mis. Persimpangan KM 3"></div>
                         <div class="col-12">
-                            <label class="form-label req" for="title">Judul singkat</label>
-                            <input type="text" name="title" id="title" value="{{ old('title', $hazard->title) }}" class="form-control @error('title') is-invalid @enderror" maxlength="160" required placeholder="mis. Kabel ekstensi terkelupas di area las">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label req" for="description">Uraian bahaya</label>
-                            <textarea name="description" id="description" rows="4" class="form-control @error('description') is-invalid @enderror" maxlength="5000" required placeholder="Apa bahayanya, di mana, siapa yang berisiko terkena (minimal 15 karakter)">{{ old('description', $hazard->description) }}</textarea>
+                            <label class="form-label req" for="description">Keterangan</label>
+                            <textarea name="description" id="description" rows="4" class="form-control @error('description') is-invalid @enderror" maxlength="5000" required placeholder="Jelaskan temuan Anda: apa, di mana, dan siapa yang berisiko">{{ old('description', $hazard->description) }}</textarea>
+                            @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-12 col-md-6"><label class="form-label" for="immediate_action">Tindakan segera yang sudah dilakukan</label><textarea name="immediate_action" id="immediate_action" rows="2" class="form-control" maxlength="3000" placeholder="mis. Area diberi pembatas">{{ old('immediate_action', $hazard->immediate_action) }}</textarea></div>
                         <div class="col-12 col-md-6"><label class="form-label" for="suggestion">Saran perbaikan</label><textarea name="suggestion" id="suggestion" rows="2" class="form-control" maxlength="3000">{{ old('suggestion', $hazard->suggestion) }}</textarea></div>
                     </div>
 
-                    <div class="section-h">2. Seberapa berisiko?</div>
-                    @error('likelihood')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
-                    @error('consequence')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
-                    <x-risk-picker :likelihood="$hazard->likelihood" :consequence="$hazard->consequence" />
-
-                    <div class="section-h">3. Foto / dokumen</div>
+                    <div class="section-h">2. Foto / dokumen</div>
                     <input type="file" name="files[]" id="files" class="form-control" multiple accept=".jpg,.jpeg,.png,.webp,.pdf">
                     <div class="form-text">Foto sangat membantu. Maksimal {{ config('ssap.attachments.max_files') }} berkas, {{ config('ssap.attachments.max_kb') / 1024 }} MB per berkas.</div>
                     @error('files')<div class="text-danger small">{{ $message }}</div>@enderror
@@ -84,11 +85,7 @@
             </div>
             <div class="s-card mb-3">
                 <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-stopwatch"></i>Target penyelesaian</h3></div>
-                <div class="s-card-body small">
-                    @foreach (config('ssap.risk_levels') as $lv)
-                        <div class="d-flex justify-content-between py-1"><span><span class="legend-dot" style="background:{{ $lv['color'] }}"></span>{{ $lv['label'] }}</span><strong>{{ $lv['sla_days'] }} hari</strong></div>
-                    @endforeach
-                </div>
+                <div class="s-card-body small">Hazard perlu selesai dalam <strong>{{ config('ssap.hazard_sla_days') }} hari</strong>. HSE dapat mengubah tenggat saat menugaskan PIC.</div>
             </div>
             <div class="d-grid gap-2">
                 <button type="submit" class="btn btn-primary"><i class="bi bi-send me-1"></i>{{ $editing ? 'Simpan perubahan' : 'Kirim laporan' }}</button>

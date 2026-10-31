@@ -1,7 +1,6 @@
 @extends('layouts.app')
 
 @php
-    $risk = $hazard->riskMeta();
     $closed = ! $hazard->isActive();
 @endphp
 
@@ -18,12 +17,11 @@
         <div class="d-flex flex-wrap justify-content-between gap-3">
             <div style="min-width:0;flex:1;">
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-                    <x-risk :level="$hazard->risk_level" :score="$hazard->risk_score" />
+                    <x-cat :category="$hazard->category" :long="true" />
                     <x-pill :meta="$hazard->statusMeta()" />
-                    <span class="pill pill-secondary">{{ $hazard->categoryLabel() }}</span>
                     @if ($hazard->isOverdue())<span class="pill pill-danger"><i class="bi bi-alarm"></i>Lewat tenggat {{ $hazard->due_date->diffInDays(today()) }} hari</span>@endif
                 </div>
-                <h2 class="h5 fw-bold mb-1">{{ $hazard->title }}</h2>
+                <h2 class="h5 fw-bold mb-1" style="white-space:pre-line;">{{ \Illuminate\Support\Str::limit($hazard->description, 220) }}</h2>
                 <div class="small text-muted">{{ $hazard->number }} &middot; ditemukan {{ $hazard->observed_at->translatedFormat('l, d F Y H:i') }} &middot; {{ $hazard->location?->name }}@if ($hazard->area_detail) &middot; {{ $hazard->area_detail }}@endif</div>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-start no-print">
@@ -34,7 +32,6 @@
                 @endif
             </div>
         </div>
-        <div class="mt-3 p-2 px-3 rounded-3 small" style="background:{{ $risk['bg'] }};color:{{ $risk['color'] }};"><strong>Risiko {{ $risk['label'] }}:</strong> {{ $risk['action'] }} Target penyelesaian {{ $risk['sla_days'] }} hari.</div>
     </div>
 </div>
 
@@ -44,10 +41,10 @@
             <div class="s-card-head"><h3 class="s-card-title"><i class="bi bi-card-text"></i>Rincian</h3></div>
             <div class="s-card-body">
                 <dl class="def-list">
-                    <dt>Uraian</dt><dd style="white-space:pre-line;">{{ $hazard->description }}</dd>
+                    <dt>Keterangan</dt><dd style="white-space:pre-line;">{{ $hazard->description }}</dd>
                     @if ($hazard->immediate_action)<dt>Tindakan segera</dt><dd style="white-space:pre-line;">{{ $hazard->immediate_action }}</dd>@endif
                     @if ($hazard->suggestion)<dt>Saran perbaikan</dt><dd style="white-space:pre-line;">{{ $hazard->suggestion }}</dd>@endif
-                    <dt>Penilaian risiko</dt><dd>Kemungkinan {{ $hazard->likelihood }} ({{ config('ssap.likelihood.'.$hazard->likelihood.'.label') }}) x Konsekuensi {{ $hazard->consequence }} ({{ config('ssap.consequence.'.$hazard->consequence.'.label') }}) = {{ $hazard->risk_score }}</dd>
+                    <dt>Jenis</dt><dd>{{ $hazard->categoryLabel() }}</dd>
                     <dt>PIC</dt><dd>{{ $hazard->pic_name ? $hazard->pic_name.($hazard->pic_department ? ' - '.$hazard->pic_department : '') : 'Belum ditetapkan' }}</dd>
                     <dt>Tenggat</dt><dd class="{{ $hazard->isOverdue() ? 'text-danger fw-semibold' : '' }}">{{ $hazard->due_date?->translatedFormat('d F Y') ?? '-' }}</dd>
                     @if ($hazard->closed_at)<dt>Selesai</dt><dd>{{ $hazard->closed_at->translatedFormat('d F Y') }} oleh {{ $hazard->closed_by }}@if ($hazard->closure_note)<div class="small text-muted">{{ $hazard->closure_note }}</div>@endif</dd>@endif

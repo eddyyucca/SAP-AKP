@@ -12,7 +12,6 @@ use App\Services\InspectionStats;
 use App\Services\Notifier;
 use App\Support\Access;
 use App\Support\Numbering;
-use App\Support\Risk;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -189,7 +188,7 @@ class InspectionController extends Controller
     public function show(Inspection $inspection)
     {
         $this->authorizeView($inspection);
-        $inspection->load(['location', 'items.hazard:id,number,status,risk_level', 'attachments', 'logs']);
+        $inspection->load(['location', 'items.hazard:id,number,status', 'attachments', 'logs']);
 
         return view('ssap.inspections.show', ['inspection' => $inspection, 'canManage' => Access::canManage()]);
     }
@@ -204,28 +203,22 @@ class InspectionController extends Controller
         return redirect()->route('ssap.inspections.index')->with('success', "Inspeksi {$number} dihapus.");
     }
 
-    /** Temuan "tidak sesuai" menjadi laporan hazard (risiko awal Sedang; HSE menilai ulang). */
+    /** Temuan "tidak sesuai" menjadi laporan hazard jenis KTA (kondisi tidak aman). */
     private function hazardFromFinding(Inspection $inspection, string $question, string $note, array $inspector): Hazard
     {
-        $likelihood = 3;
-        $consequence = 2;
-        $score = Risk::score($likelihood, $consequence);
-        $level = Risk::level($score);
-
         return Numbering::create('HZD', Hazard::class, fn (string $number) => Hazard::create([
             'number' => $number,
             'observed_at' => $inspection->inspected_at,
             'location_id' => $inspection->location_id,
             'area_detail' => $inspection->area_detail,
-            'category' => array_key_exists($inspection->category, config('ssap.hazard_categories')) ? $inspection->category : 'other',
-            'title' => \Illuminate\Support\Str::limit('Temuan inspeksi: '.$question, 155),
-            'description' => "Ditemukan saat {$inspection->template_name} ({$inspection->number}).\nButir: {$question}\nTemuan: {$note}",
-            'likelihood' => $likelihood, 'consequence' => $consequence, 'risk_score' => $score, 'risk_level' => $level,
+            'category' => 'kta',
+            'title' => \Illuminate\Support\Str::limit('Temuan inspeksi: '.$question, 150),
+            'description' => "Temuan inspeksi {$inspection->number} ({$inspection->template_name}): {$question}".($note !== '' ? " - {$note}" : ''),
             'reporter_nik' => $inspector['reporter_nik'], 'reporter_name' => $inspector['reporter_name'],
             'reporter_department' => $inspector['reporter_department'], 'reporter_position' => $inspector['reporter_position'],
             'reporter_email' => $inspector['reporter_email'], 'created_by_id' => $inspector['created_by_id'],
             'status' => 'open',
-            'due_date' => now()->addDays(Risk::slaDays($level))->toDateString(),
+            'due_date' => now()->addDays((int) config('ssap.hazard_sla_days'))->toDateString(),
         ]));
     }
 }

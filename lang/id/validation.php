@@ -47,6 +47,6 @@ return [
         'files' => 'lampiran', 'files.*' => 'lampiran', 'cost_estimate' => 'estimasi kerugian', 'code' => 'kode', 'name' => 'nama',
         'persons.*.name' => 'nama orang terlibat', 'persons.*.role' => 'peran', 'persons.*.lost_days' => 'hari kerja hilang',
         'target_per_month' => 'target per bulan', 'items' => 'butir pemeriksaan', 'hours.*.*' => 'jam kerja', 'year' => 'tahun',
-        'remind_days_before' => 'hari pengingat', 'notify_hse' => 'penerima HSE', 'notify_manager' => 'penerima manajemen', 'notify_severe' => 'penerima insiden berat',
+        'remind_days_before' => 'hari pengingat', 'notify_hse' => 'penerima HSE', 'notify_manager' => 'penerima manajemen', 'notify_severe' => 'penerima hazard ekstrem',
     ],
 ];

@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-/** Bagian yang sama untuk laporan insiden, hazard, dan tindakan: identitas pelapor/PIC, lampiran, aturan berkas. */
+/** Bagian yang sama untuk hazard, inspeksi, dan tindakan: identitas pelapor/PIC, lampiran, aturan berkas. */
 trait ManagesRecords
 {
     /** Identitas pelapor = pengguna Portal yang login, dilengkapi data HRIS (departemen, jabatan, email). */

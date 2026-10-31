@@ -15,7 +15,7 @@
                 <form method="POST" action="{{ route('ssap.settings.update') }}">
                     @csrf @method('PUT')
                     <p class="small text-muted">Isi alamat email dipisah koma atau baris baru. Pelapor, investigator, dan PIC otomatis menerima email sesuai perannya (alamat diambil dari HRIS).</p>
-                    @foreach (['notify_hse' => ['Tim HSE', 'Menerima setiap laporan insiden &amp; hazard baru, tindakan yang menunggu verifikasi, dan ringkasan harian.'], 'notify_manager' => ['Manajemen', 'Menerima setiap laporan insiden baru dan hazard risiko ekstrem.'], 'notify_severe' => ['Insiden berat', 'Tambahan penerima untuk fatal, LTI, kebakaran, dan hazard ekstrem (mis. direksi, KTT).']] as $key => [$label, $hint])
+                    @foreach (['notify_hse' => ['Tim HSE', 'Menerima setiap hazard baru, tindakan yang menunggu verifikasi, dan ringkasan harian.'] ] as $key => [$label, $hint])
                         <div class="mb-3">
                             <label class="form-label fw-semibold small mb-1" for="{{ $key }}">{{ $label }}</label>
                             <textarea name="{{ $key }}" id="{{ $key }}" rows="2" class="form-control form-control-sm @error($key) is-invalid @enderror" placeholder="nama@akp.co.id, ...">{{ old($key, $emails[$key]) }}</textarea>
@@ -26,6 +26,21 @@
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="notify_reporter" value="1" id="notify_reporter" @checked(old('notify_reporter', $notifyReporter))>
                         <label class="form-check-label small" for="notify_reporter">Kirim email konfirmasi &amp; kabar perkembangan ke pelapor</label>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-label fw-semibold small mb-1">Target pelaporan per bulan (menurut grade HRIS)</div>
+                        <table class="table table-sm table-ssap mb-1" style="max-width:420px;">
+                            <thead><tr><th>Grade</th><th class="num">Hazard</th><th class="num">Inspeksi</th></tr></thead>
+                            <tbody>
+                            @foreach ($targets as $g => $t)
+                                <tr><td class="align-middle">Grade {{ $g }}</td>
+                                    <td><input type="number" min="0" max="50" name="target_hazard[{{ $g }}]" value="{{ old('target_hazard.'.$g, $t['hazard']) }}" class="form-control form-control-sm text-end" required></td>
+                                    <td><input type="number" min="0" max="50" name="target_inspection[{{ $g }}]" value="{{ old('target_inspection.'.$g, $t['inspection']) }}" class="form-control form-control-sm text-end" required></td></tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                        <div class="form-text">Grade 5 melihat capaian timnya; grade 6 ke atas melihat seluruh departemen. Hazard = laporan yang dibuat sendiri (temuan otomatis inspeksi tidak dihitung). Isi 0 bila tidak ada target.</div>
+                        @error('target_hazard.*')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
                     <div class="mb-3" style="max-width:280px;">
                         <label class="form-label fw-semibold small mb-1" for="remind_days_before">Pengingat tindakan (hari sebelum tenggat)</label>

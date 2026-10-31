@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ManagesRecords;
 use App\Models\CorrectiveAction;
 use App\Models\Hazard;
-use App\Models\Incident;
 use App\Services\Notifier;
 use App\Support\Access;
 use Illuminate\Http\RedirectResponse;
@@ -31,7 +30,6 @@ class ActionController extends Controller
             'view' => ['nullable', 'in:mine,all,verify,overdue'],
             'status' => ['nullable', 'string', 'max:20'],
             'q' => ['nullable', 'string', 'max:100'],
-            'source' => ['nullable', 'in:incident,hazard'],
         ]);
 
         // Pengguna biasa hanya melihat tindakan yang ditugaskan kepadanya.
@@ -45,7 +43,6 @@ class ActionController extends Controller
             ->when($view === 'verify', fn ($q) => $q->where('status', 'done'))
             ->when($view === 'overdue', fn ($q) => $q->overdue())
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
-            ->when($filters['source'] ?? null, fn ($q, $v) => $q->where('source_type', $v))
             ->when($filters['q'] ?? null, fn ($q, $term) => $q->where(fn ($w) => $w->where('description', 'like', "%{$term}%")->orWhere('pic_name', 'like', "%{$term}%")));
 
         $counts = [
@@ -63,22 +60,22 @@ class ActionController extends Controller
         ]);
     }
 
-    /** HSE menambah tindakan pada insiden/hazard. */
+    /** HSE menambah tindakan pada hazard. */
     public function store(Request $request): RedirectResponse
     {
         abort_unless(Access::canManage(), 403);
 
         $data = $request->validate($this->personRules('pic') + [
-            'source_type' => ['required', 'in:incident,hazard'],
+            'source_type' => ['required', 'in:hazard'],
             'source_id' => ['required', 'integer'],
             'type' => ['required', $this->inList('ssap.action_types')],
             'description' => ['required', 'string', 'min:5', 'max:3000'],
             'due_date' => ['required', 'date', 'after_or_equal:today'],
         ]);
 
-        $source = $data['source_type'] === 'incident' ? Incident::findOrFail($data['source_id']) : Hazard::findOrFail($data['source_id']);
+        $source = Hazard::findOrFail($data['source_id']);
 
-        if (($source instanceof Incident && in_array($source->status, ['closed', 'cancelled'], true)) || ($source instanceof Hazard && ! $source->isActive())) {
+        if (! $source->isActive()) {
             throw ValidationException::withMessages(['description' => 'Laporan sumber sudah ditutup. Buka kembali sebelum menambah tindakan.']);
         }
 
@@ -97,7 +94,7 @@ class ActionController extends Controller
         ]);
 
         // Hazard yang sudah punya tindakan = sedang ditangani.
-        if ($source instanceof Hazard && $source->status === 'open') {
+        if ($source->status === 'open') {
             $source->update(['status' => 'in_progress', 'pic_nik' => $pic['nik'], 'pic_name' => $pic['name'], 'pic_department' => $pic['department'], 'pic_email' => $pic['email'], 'due_date' => $data['due_date']]);
         }
 
@@ -165,7 +162,7 @@ class ActionController extends Controller
         $source?->log('action_verified', ($accepted ? 'Tindakan terverifikasi' : 'Tindakan dikembalikan').": {$action->pic_name}".($note ? " - {$note}" : ''));
 
         // Hazard otomatis selesai bila seluruh tindakannya sudah terverifikasi.
-        if ($accepted && $source instanceof Hazard && $source->isActive() && ! $source->actions()->whereIn('status', ['open', 'in_progress', 'done'])->exists()) {
+        if ($accepted && $source && $source->isActive() && ! $source->actions()->whereIn('status', ['open', 'in_progress', 'done'])->exists()) {
             $source->update(['status' => 'closed', 'closed_at' => now(), 'closed_by' => portal_user()->name, 'closure_note' => 'Seluruh tindakan telah dikerjakan dan diverifikasi.']);
             $source->log('closed', 'Ditutup otomatis: seluruh tindakan terverifikasi');
             $this->notifier->hazardClosed($source->fresh());

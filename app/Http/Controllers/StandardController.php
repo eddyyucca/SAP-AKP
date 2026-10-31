@@ -2,20 +2,17 @@
 
 namespace App\Http\Controllers;
 
-/** Halaman "Standar Pelaporan": rujukan klasifikasi, matriks risiko, tenggat, dan rumus (dibaca dari config/ssap.php). */
+/** Halaman "Standar Pelaporan": rujukan jenis hazard (TTA/KTA), tenggat, penilaian inspeksi, dan akuntabilitas (dibaca dari config/ssap.php). */
 class StandardController extends Controller
 {
     public function __invoke()
     {
         return view('ssap.standard', [
-            'types' => config('ssap.incident_types'),
-            'severity' => config('ssap.severity'),
-            'likelihood' => config('ssap.likelihood'),
-            'consequence' => config('ssap.consequence'),
-            'levels' => config('ssap.risk_levels'),
-            'investigationDays' => config('ssap.investigation_days'),
-            'notifyHours' => config('ssap.notify_hours'),
-            'rateBase' => config('ssap.rate_base'),
+            'slaDays' => config('ssap.hazard_sla_days'),
+            'categories' => config('ssap.hazard_categories'),
+            'scoreGood' => config('ssap.inspection_score.good'),
+            'scoreFair' => config('ssap.inspection_score.fair'),
+            'templates' => \App\Models\InspectionTemplate::active()->withCount('items')->orderBy('name')->get(),
         ]);
     }
 }

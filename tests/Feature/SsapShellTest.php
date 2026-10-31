@@ -18,7 +18,7 @@ class SsapShellTest extends TestCase
 
     public function test_guests_are_sent_to_the_portal_and_the_health_check_is_open(): void
     {
-        foreach (['/', '/ssap', '/ssap/insiden', '/ssap/inspeksi'] as $path) {
+        foreach (['/', '/ssap', '/ssap/hazard', '/ssap/inspeksi', '/ssap/laporan'] as $path) {
             $res = $this->get($path);
             $res->assertRedirect();
             $this->assertStringStartsWith('http://portal.test/login', $res->headers->get('Location'), $path);
@@ -30,7 +30,7 @@ class SsapShellTest extends TestCase
     public function test_every_declared_level_opens_the_dashboard_and_unknown_levels_are_refused(): void
     {
         foreach (['admin', 'hse', 'manager', 'user'] as $role) {
-            $this->loginPortal(['id' => '2', 'name' => 'Budi', 'role' => $role, 'level' => 10])->get('/ssap')->assertOk()->assertSee('Dashboard SAP Safety')->assertSee('Budi');
+            $this->loginPortal(['id' => '2', 'name' => 'Budi', 'role' => $role, 'level' => 10])->get('/ssap')->assertOk()->assertSee('Dashboard SAP')->assertSee('Budi');
         }
 
         $this->loginPortal(['role' => 'tamu', 'level' => 1])->get('/ssap')->assertForbidden();
@@ -39,6 +39,13 @@ class SsapShellTest extends TestCase
     public function test_root_redirects_to_the_dashboard(): void
     {
         $this->loginPortal(['role' => 'user', 'level' => 10])->get('/')->assertRedirect('/ssap');
+    }
+
+    public function test_the_retired_incident_module_is_gone(): void
+    {
+        foreach (['/ssap/insiden', '/ssap/lpi', '/ssap/kontraktor', '/ssap/jam-kerja'] as $url) {
+            $this->loginPortal(['role' => 'admin', 'level' => 100])->get($url)->assertNotFound();
+        }
     }
 
     public function test_sidebar_shows_only_what_the_level_may_open(): void
@@ -51,22 +58,26 @@ class SsapShellTest extends TestCase
         };
 
         $admin = $sidebar('admin');
-        foreach (['Dashboard', 'Lapor Insiden', 'Inspeksi Rutin', 'Dashboard Inspeksi', 'Laporan &amp; Grafik', 'Template Inspeksi', 'Jam Kerja', 'Lokasi / Site', 'Pengaturan', 'Standar Pelaporan', 'Monitoring LPI Kontraktor', 'Kontraktor (IUP/IUJP)'] as $label) {
+        foreach (['Dashboard', 'Lapor Hazard', 'Inspeksi Rutin', 'Dashboard Hazard', 'Dashboard Inspeksi', 'Akuntabilitas PIC', 'Laporan &amp; Grafik', 'Ringkasan Bulanan', 'Template Inspeksi', 'Lokasi / Site', 'Pengaturan', 'Standar Pelaporan'] as $label) {
             $this->assertStringContainsString($label, $admin, $label);
+        }
+        foreach (['Insiden', 'LPI', 'Kontraktor', 'Jam Kerja'] as $gone) {
+            $this->assertStringNotContainsString($gone, $admin, $gone);
         }
         $this->assertStringContainsString('sidebar-link active', $admin);
         $this->assertStringNotContainsString('sidebar-title', $admin, 'logo saja, seperti HRIS');
 
         $hse = $sidebar('hse');
-        $this->assertStringContainsString('Jam Kerja', $hse);
+        $this->assertStringContainsString('Template Inspeksi', $hse);
         $this->assertStringNotContainsString('Pengaturan', $hse);
 
         $manager = $sidebar('manager');
-        $this->assertStringContainsString('Laporan &amp; Grafik', $manager);
-        $this->assertStringNotContainsString('Jam Kerja', $manager);
+        $this->assertStringContainsString('Akuntabilitas PIC', $manager);
+        $this->assertStringNotContainsString('Template Inspeksi', $manager);
 
         $user = $sidebar('user');
-        $this->assertStringContainsString('Insiden Saya', $user);
+        $this->assertStringContainsString('Hazard Saya', $user);
+        $this->assertStringContainsString('Inspeksi Saya', $user);
         $this->assertStringNotContainsString('Laporan &amp; Grafik', $user);
         $this->assertStringNotContainsString('Pengaturan', $user);
     }

@@ -13,16 +13,10 @@
 @section('content')
 <form method="GET" class="s-card p-3 mb-3 filter-bar">
     <div class="row g-2">
-        <div class="col-12 col-md-4 col-xl-3"><input type="search" name="q" value="{{ $filters['q'] ?? '' }}" class="form-control form-control-sm" placeholder="Cari nomor, judul, pelapor, PIC..."></div>
+        <div class="col-12 col-md-4 col-xl-3"><input type="search" name="q" value="{{ $filters['q'] ?? '' }}" class="form-control form-control-sm" placeholder="Cari nomor, keterangan, pelapor, PIC..."></div>
         <div class="col-6 col-md-4 col-xl-2">
-            <select name="category" class="form-select form-select-sm"><option value="">Semua kategori</option>
+            <select name="category" class="form-select form-select-sm"><option value="">TTA &amp; KTA</option>
                 @foreach (config('ssap.hazard_categories') as $k => $label)<option value="{{ $k }}" @selected(($filters['category'] ?? '') === $k)>{{ $label }}</option>@endforeach
-            </select>
-        </div>
-        <div class="col-6 col-md-4 col-xl-2">
-            <select name="risk" class="form-select form-select-sm"><option value="">Semua risiko</option>
-                <option value="severe" @selected(($filters['risk'] ?? '') === 'severe')>Tinggi &amp; ekstrem</option>
-                @foreach (config('ssap.risk_levels') as $k => $lv)<option value="{{ $k }}" @selected(($filters['risk'] ?? '') === $k)>{{ $lv['label'] }}</option>@endforeach
             </select>
         </div>
         <div class="col-6 col-md-4 col-xl-2">
@@ -57,13 +51,13 @@
 <div class="s-card">
     <div class="table-responsive">
         <table class="table table-ssap mb-0">
-            <thead><tr><th>Nomor</th><th>Hazard</th><th>Risiko</th><th>Lokasi</th><th>Ditemukan</th><th>PIC / tenggat</th><th>Status</th></tr></thead>
+            <thead><tr><th>Nomor</th><th>Keterangan</th><th>Jenis</th><th>Lokasi</th><th>Ditemukan</th><th>PIC / tenggat</th><th>Status</th></tr></thead>
             <tbody>
             @forelse ($hazards as $h)
                 <tr class="row-link" data-href="{{ route('ssap.hazards.show', $h) }}">
                     <td class="fw-semibold text-nowrap">{{ $h->number }}</td>
-                    <td style="min-width:240px;">{{ \Illuminate\Support\Str::limit($h->title, 70) }}<div class="small text-muted">{{ $h->categoryLabel() }}</div></td>
-                    <td><x-risk :level="$h->risk_level" :score="$h->risk_score" /></td>
+                    <td style="min-width:240px;">{{ \Illuminate\Support\Str::limit($h->description, 90) }}</td>
+                    <td><x-cat :category="$h->category" /></td>
                     <td>{{ $h->location?->name }}</td>
                     <td class="text-nowrap">{{ $h->observed_at->translatedFormat('d M Y') }}<div class="small text-muted">{{ $h->reporter_name }}</div></td>
                     <td class="small">{{ $h->pic_name ?? '-' }}<div class="{{ $h->isOverdue() ? 'text-danger fw-semibold' : 'text-muted' }}">{{ $h->due_date?->translatedFormat('d M Y') }}@if ($h->isOverdue()) <i class="bi bi-exclamation-circle"></i>@endif</div></td>

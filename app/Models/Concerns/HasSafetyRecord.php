@@ -7,7 +7,7 @@ use App\Models\Attachment;
 use App\Models\CorrectiveAction;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-/** Relasi bersama insiden dan hazard: tindakan korektif, lampiran, dan riwayat. */
+/** Relasi bersama hazard dan inspeksi: tindakan korektif, lampiran, dan riwayat. */
 trait HasSafetyRecord
 {
     public function actions(): MorphMany

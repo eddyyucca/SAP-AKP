@@ -5,11 +5,11 @@ namespace App\Models;
 use Akp\PortalSso\PortalUser;
 use App\Models\Concerns\HasSafetyRecord;
 use App\Support\Access;
-use App\Support\Risk;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Hazard extends Model
 {
@@ -28,15 +28,20 @@ class Hazard extends Model
         return $this->belongsTo(Location::class);
     }
 
-    /** Hazard yang boleh dilihat pengguna: semua untuk admin/HSE/manajer; selain itu laporan sendiri atau yang ia tangani (PIC). */
+    /** Hazard yang boleh dilihat: semua (admin/HSE/manajer, grade 6+); tim (grade 5); selain itu laporan sendiri atau yang ia tangani (PIC). */
     public function scopeVisibleTo(Builder $query, PortalUser $user): Builder
     {
-        if (Access::canViewAll($user)) {
+        $scope = Access::scope($user);
+        if ($scope['mode'] === 'all') {
             return $query;
         }
 
-        return $query->where(function (Builder $w) use ($user) {
+        return $query->where(function (Builder $w) use ($user, $scope) {
             $w->where('created_by_id', (string) $user->id);
+
+            if ($scope['mode'] === 'team') {
+                $w->orWhereIn('reporter_nik', $scope['niks']);
+            }
 
             if (filled($user->employee_no)) {
                 $w->orWhere('reporter_nik', $user->employee_no)
@@ -69,9 +74,22 @@ class Hazard extends Model
         return $this->isActive() && $this->due_date && $this->due_date->lt(today());
     }
 
-    public function riskMeta(): array
+    /** Kolom penilaian risiko lama tetap ada di database; SAP tidak lagi menilai risiko, jadi diisi nilai tetap. */
+    protected static function booted(): void
     {
-        return Risk::meta($this->risk_level);
+        static::creating(function (self $h) {
+            $h->likelihood ??= 3;
+            $h->consequence ??= 2;
+            $h->risk_score ??= 6;
+            $h->risk_level ??= 'medium';
+            $h->title = $h->title ?: Str::limit(trim((string) $h->description), 150);
+            $h->category = $h->category ?: 'kta';
+        });
+    }
+
+    public function categoryColor(): string
+    {
+        return config('ssap.hazard_category_colors.'.$this->category, '#64748b');
     }
 
     public function statusMeta(): array

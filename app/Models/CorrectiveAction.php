@@ -20,6 +20,12 @@ class CorrectiveAction extends Model
         'reminded_on' => 'date',
     ];
 
+    /** Tindakan lama dari modul insiden yang diarsipkan tetap tersimpan di database tetapi tidak ditampilkan. */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('hazard-only', fn (Builder $q) => $q->where('source_type', 'hazard'));
+    }
+
     public function source(): MorphTo
     {
         return $this->morphTo();
@@ -51,11 +57,10 @@ class CorrectiveAction extends Model
         return config('ssap.action_types.'.$this->type, $this->type);
     }
 
-    /** Catatan sumber (insiden/hazard) untuk tautan dan judul. */
+    /** Tautan ke hazard sumber tindakan. */
     public function sourceUrl(): ?string
     {
         return match ($this->source_type) {
-            'incident' => route('ssap.incidents.show', $this->source_id),
             'hazard' => route('ssap.hazards.show', $this->source_id),
             default => null,
         };

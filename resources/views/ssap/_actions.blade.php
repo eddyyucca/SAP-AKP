@@ -1,6 +1,6 @@
 {{--
     Tindakan korektif pada sebuah laporan.
-    $record (Incident/Hazard), $sourceType ('incident'|'hazard'), $canManage, $closed (laporan sudah ditutup)
+    $record (Hazard), $sourceType ('hazard'), $canManage, $closed (laporan sudah ditutup)
 --}}
 @php
     $myNik = $portalUser->employee_no;

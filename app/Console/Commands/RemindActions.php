@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\CorrectiveAction;
 use App\Models\Hazard;
-use App\Models\Incident;
+use App\Models\InspectionTemplate;
 use App\Models\Setting;
 use App\Services\AkpMail;
 use App\Services\Notifier;
@@ -32,28 +32,23 @@ class RemindActions extends Command
                 $sent++;
             });
 
-        // LPI kontraktor yang mendekati/melewati tenggat: ingatkan PIC kontraktor tiap hari sampai LPI diterima.
-        Incident::query()->with('contractor')->withLpi()->whereIn('lpi_status', ['pending', 'revision'])
-            ->whereDate('lpi_due', '<=', $window)
-            ->where(fn ($q) => $q->whereNull('lpi_reminded_on')->orWhereDate('lpi_reminded_on', '<', today()))
-            ->each(function (Incident $incident) use ($notifier, &$sent) {
-                if (filled($incident->contractor?->pic_email)) {
-                    $notifier->lpiReminder($incident);
-                    $sent++;
-                }
-                $incident->forceFill(['lpi_reminded_on' => today()])->save();
-            });
+        $behind = InspectionTemplate::active()->where('target_per_month', '>', 0)->get()->filter(function ($t) {
+            $done = \App\Models\Inspection::where('template_id', $t->id)->where('inspected_at', '>=', now()->startOfMonth())->count();
+            // Peringatan hanya di paruh kedua bulan, saat target masih jauh tertinggal.
+            return now()->day >= 15 && $done < ceil($t->target_per_month * now()->day / now()->daysInMonth);
+        })->count();
+
+        // Target pelaporan bulanan: diingatkan sejak tanggal 20 agar masih sempat dipenuhi.
+        $targetBehind = now()->day >= 20 ? collect(app(\App\Services\TargetStats::class)->rows(now()))->where('achieved', false)->count() : 0;
 
         $digest = [
             'Tindakan terlambat' => CorrectiveAction::overdue()->count(),
             'Tindakan menunggu verifikasi' => CorrectiveAction::where('status', 'done')->count(),
-            'Investigasi melewati tenggat' => Incident::whereIn('status', ['submitted', 'investigating'])->whereDate('investigation_due', '<', today())->count(),
-            'Insiden belum ada investigator' => Incident::where('status', 'submitted')->count(),
-            'Hazard risiko tinggi/ekstrem terbuka' => Hazard::open()->whereIn('risk_level', ['high', 'extreme'])->count(),
-            'LPI kontraktor terlambat' => Incident::lpiOverdue()->count(),
-            'LPI menunggu peninjauan HSE' => Incident::where('lpi_status', 'submitted')->count(),
+            'Hazard terbuka (TTA + KTA)' => Hazard::open()->count(),
             'Hazard belum ada PIC' => Hazard::where('status', 'open')->whereNull('pic_name')->count(),
             'Hazard melewati tenggat' => Hazard::open()->whereDate('due_date', '<', today())->count(),
+            'Template inspeksi tertinggal dari target bulan ini' => $behind,
+            'Karyawan belum mencapai target pelaporan bulan ini' => $targetBehind,
         ];
 
         if (array_sum($digest) > 0) {

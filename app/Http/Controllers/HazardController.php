@@ -10,7 +10,6 @@ use App\Services\HrisEmployees;
 use App\Services\Notifier;
 use App\Support\Access;
 use App\Support\Numbering;
-use App\Support\Risk;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +30,6 @@ class HazardController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:30'],
             'status' => ['nullable', 'string', 'max:20'],
-            'risk' => ['nullable', 'string', 'max:10'],
             'location' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
@@ -40,12 +38,11 @@ class HazardController extends Controller
 
         $query = Hazard::query()->visibleTo(portal_user())->with('location:id,name')
             ->when($filters['q'] ?? null, function ($q, $term) {
-                $q->where(fn ($w) => $w->where('number', 'like', "%{$term}%")->orWhere('title', 'like', "%{$term}%")
+                $q->where(fn ($w) => $w->where('number', 'like', "%{$term}%")->orWhere('description', 'like', "%{$term}%")
                     ->orWhere('reporter_name', 'like', "%{$term}%")->orWhere('pic_name', 'like', "%{$term}%")->orWhere('area_detail', 'like', "%{$term}%"));
             })
             ->when($filters['category'] ?? null, fn ($q, $v) => $q->where('category', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
-            ->when($filters['risk'] ?? null, fn ($q, $v) => $v === 'severe' ? $q->whereIn('risk_level', ['high', 'extreme']) : $q->where('risk_level', $v))
             ->when($filters['location'] ?? null, fn ($q, $v) => $q->where('location_id', $v))
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->where('observed_at', '>=', $v.' 00:00:00'))
             ->when($filters['to'] ?? null, fn ($q, $v) => $q->where('observed_at', '<=', $v.' 23:59:59'))
@@ -62,7 +59,7 @@ class HazardController extends Controller
 
     public function create()
     {
-        return view('ssap.hazards.form', $this->formData(new Hazard(['observed_at' => now(), 'likelihood' => 3, 'consequence' => 2])));
+        return view('ssap.hazards.form', $this->formData(new Hazard(['observed_at' => now(), 'category' => 'kta'])));
     }
 
     public function store(Request $request): RedirectResponse
@@ -74,7 +71,7 @@ class HazardController extends Controller
             $this->attributes($data) + $reporter + [
                 'number' => $number,
                 'status' => 'open',
-                'due_date' => now()->addDays(Risk::slaDays(Risk::level(Risk::score((int) $data['likelihood'], (int) $data['consequence']))))->toDateString(),
+                'due_date' => now()->addDays((int) config('ssap.hazard_sla_days'))->toDateString(),
             ]
         ));
 
@@ -248,10 +245,7 @@ class HazardController extends Controller
             'location_id' => ['required', Rule::exists('locations', 'id')->where('is_active', true)],
             'area_detail' => ['nullable', 'string', 'max:160'],
             'category' => ['required', $this->inList('ssap.hazard_categories')],
-            'title' => ['required', 'string', 'max:160'],
-            'description' => ['required', 'string', 'min:15', 'max:5000'],
-            'likelihood' => ['required', 'integer', 'between:1,5'],
-            'consequence' => ['required', 'integer', 'between:1,5'],
+            'description' => ['required', 'string', 'min:5', 'max:5000'],
             'immediate_action' => ['nullable', 'string', 'max:3000'],
             'suggestion' => ['nullable', 'string', 'max:3000'],
             'reporter_department' => ['nullable', 'string', 'max:120'],
@@ -261,19 +255,13 @@ class HazardController extends Controller
 
     private function attributes(array $data): array
     {
-        $score = Risk::score((int) $data['likelihood'], (int) $data['consequence']);
-
         return [
             'observed_at' => $data['observed_at'],
             'location_id' => $data['location_id'],
             'area_detail' => $this->clean($data['area_detail'] ?? null),
             'category' => $data['category'],
-            'title' => trim($data['title']),
+            'title' => \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', $data['description'])), 150),
             'description' => trim($data['description']),
-            'likelihood' => (int) $data['likelihood'],
-            'consequence' => (int) $data['consequence'],
-            'risk_score' => $score,
-            'risk_level' => Risk::level($score),
             'immediate_action' => $this->clean($data['immediate_action'] ?? null),
             'suggestion' => $this->clean($data['suggestion'] ?? null),
         ];

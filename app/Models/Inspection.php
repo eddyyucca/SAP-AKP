@@ -34,15 +34,19 @@ class Inspection extends Model
         return $this->hasMany(InspectionItem::class)->orderBy('position');
     }
 
-    /** Admin/HSE/Manajer melihat semua; selain itu inspeksi yang ia lakukan sendiri. */
+    /** Admin/HSE/Manajer/grade 6+ melihat semua; grade 5 inspeksi timnya; selain itu miliknya sendiri. */
     public function scopeVisibleTo(Builder $query, PortalUser $user): Builder
     {
-        if (Access::canViewAll($user)) {
+        $scope = Access::scope($user);
+        if ($scope['mode'] === 'all') {
             return $query;
         }
 
-        return $query->where(function (Builder $w) use ($user) {
+        return $query->where(function (Builder $w) use ($user, $scope) {
             $w->where('created_by_id', (string) $user->id);
+            if ($scope['mode'] === 'team') {
+                $w->orWhereIn('inspector_nik', $scope['niks']);
+            }
             if (filled($user->employee_no)) {
                 $w->orWhere('inspector_nik', $user->employee_no);
             }
@@ -64,8 +68,8 @@ class Inspection extends Model
     {
         return match (true) {
             $score === null => ['label' => 'N/A', 'color' => 'secondary'],
-            $score >= 90 => ['label' => 'Baik', 'color' => 'success'],
-            $score >= 75 => ['label' => 'Cukup', 'color' => 'warning'],
+            $score >= config('ssap.inspection_score.good') => ['label' => 'Baik', 'color' => 'success'],
+            $score >= config('ssap.inspection_score.fair') => ['label' => 'Cukup', 'color' => 'warning'],
             default => ['label' => 'Perlu perbaikan', 'color' => 'danger'],
         };
     }

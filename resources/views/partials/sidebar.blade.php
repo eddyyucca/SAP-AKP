@@ -16,30 +16,30 @@
         $item('Dashboard', 'bi bi-grid-1x2-fill', 'ssap.home', ['ssap.home']),
 
         ['title' => 'Buat Laporan', 'children' => [
-            $item('Lapor Insiden', 'bi bi-exclamation-octagon', 'ssap.incidents.create', ['ssap.incidents.create']),
             $item('Lapor Hazard', 'bi bi-cone-striped', 'ssap.hazards.create', ['ssap.hazards.create']),
             $item('Inspeksi Rutin', 'bi bi-clipboard2-check', 'ssap.inspections.create', ['ssap.inspections.create']),
         ]],
 
-        ['title' => 'Data Safety', 'children' => array_values(array_filter([
-            $item($canViewAll ? 'Daftar Insiden' : 'Insiden Saya', 'bi bi-journal-text', 'ssap.incidents.index', ['ssap.incidents.index', 'ssap.incidents.show', 'ssap.incidents.edit']),
+        ['title' => 'Data Safety', 'children' => [
             $item($canViewAll ? 'Daftar Hazard' : 'Hazard Saya', 'bi bi-shield-exclamation', 'ssap.hazards.index', ['ssap.hazards.index', 'ssap.hazards.show', 'ssap.hazards.edit']),
             $item($canViewAll ? 'Daftar Inspeksi' : 'Inspeksi Saya', 'bi bi-clipboard2-data', 'ssap.inspections.index', ['ssap.inspections.index', 'ssap.inspections.show']),
             $item($canViewAll ? 'Tindakan Korektif' : 'Tindakan Saya', 'bi bi-list-check', 'ssap.actions.index', ['ssap.actions.*']),
-        ]))],
+            $item(['all' => 'Target Departemen', 'team' => 'Target Tim', 'self' => 'Target Saya'][\App\Support\Access::scope()['mode']], 'bi bi-bullseye', 'ssap.targets', ['ssap.targets']),
+        ]],
     ];
 
     if ($canViewAll) {
-        $menus[] = ['title' => 'Analisis & Laporan', 'children' => [
-            $item('Monitoring LPI Kontraktor', 'bi bi-building-check', 'ssap.lpi.index', ['ssap.lpi.*']),
+        $menus[] = ['title' => 'Dashboard & Analisis', 'children' => [
+            $item('Dashboard Hazard', 'bi bi-speedometer2', 'ssap.hazards.dashboard', ['ssap.hazards.dashboard']),
             $item('Dashboard Inspeksi', 'bi bi-speedometer', 'ssap.inspections.dashboard', ['ssap.inspections.dashboard']),
+            $item('Akuntabilitas PIC', 'bi bi-person-check', 'ssap.accountability', ['ssap.accountability']),
             $item('Laporan & Grafik', 'bi bi-bar-chart-line', 'ssap.reports.index', ['ssap.reports.index']),
             $item('Ringkasan Bulanan', 'bi bi-file-earmark-text', 'ssap.reports.monthly', ['ssap.reports.monthly']),
         ]];
     }
 
     if ($canManage) {
-        $admin = [$item('Kontraktor (IUP/IUJP)', 'bi bi-buildings', 'ssap.contractors.index', ['ssap.contractors.*']), $item('Template Inspeksi', 'bi bi-ui-checks', 'ssap.inspection-templates.index', ['ssap.inspection-templates.*']), $item('Jam Kerja', 'bi bi-clock-history', 'ssap.manhours.index', ['ssap.manhours.*'])];
+        $admin = [$item('Template Inspeksi', 'bi bi-ui-checks', 'ssap.inspection-templates.index', ['ssap.inspection-templates.*'])];
         if ($isAdmin) {
             $admin[] = $item('Lokasi / Site', 'bi bi-geo-alt', 'ssap.locations.index', ['ssap.locations.*']);
             $admin[] = $item('Pengaturan', 'bi bi-gear', 'ssap.settings.index', ['ssap.settings.*']);

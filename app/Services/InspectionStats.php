@@ -142,6 +142,41 @@ class InspectionStats
             ->map(fn ($r) => ['question' => $r->question, 'total' => (int) $r->total])->all();
     }
 
+    /** Papan inspektor: jumlah inspeksi, skor rata-rata, dan temuan yang dilaporkan. */
+    public function inspectorBoard(int $limit = 10): array
+    {
+        return $this->inspections()->groupBy('inspector_name')->map(function ($g, $name) {
+            $scored = $g->whereNotNull('score');
+
+            return [
+                'name' => $name, 'count' => $g->count(), 'findings' => (int) $g->sum('nok_count'),
+                'score' => $scored->isEmpty() ? null : round($scored->avg('score'), 1),
+                'last' => $g->max('inspected_at'),
+            ];
+        })->sortByDesc('count')->take($limit)->values()->all();
+    }
+
+    /** Inspeksi tanpa temuan (bersih) sebagai persen dari seluruh inspeksi. */
+    public function cleanPct(): ?int
+    {
+        $n = $this->inspections()->count();
+
+        return $n ? (int) round($this->inspections()->where('nok_count', 0)->count() * 100 / $n) : null;
+    }
+
+    /** Template yang belum mencapai target bulan ini (untuk peringatan di dashboard). */
+    public function behindThisMonth(): array
+    {
+        $start = now()->startOfMonth();
+        $done = Inspection::query()->where('inspected_at', '>=', $start)
+            ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
+            ->selectRaw('template_id, count(*) as n')->groupBy('template_id')->pluck('n', 'template_id');
+
+        return InspectionTemplate::active()->where('target_per_month', '>', 0)->orderBy('name')->get(['id', 'name', 'target_per_month'])
+            ->map(fn ($t) => ['name' => $t->name, 'done' => (int) ($done[$t->id] ?? 0), 'target' => $t->target_per_month])
+            ->filter(fn ($r) => $r['done'] < $r['target'])->values()->all();
+    }
+
     public function recent(int $limit = 8): Collection
     {
         return Inspection::query()->with('location:id,name')

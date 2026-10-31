@@ -24,3 +24,5 @@ deploy
 docker-compose*.yml
 *.zip
 .phpunit.result.cache
+
+arsip/

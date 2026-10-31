@@ -1,34 +1,56 @@
 # SAP - Safety Accountability Program
 
-Modul AKPSatu untuk **pelaporan dan pemantauan keselamatan kerja** PT Adhi Kartiko Pratama Tbk: laporan insiden, hazard, inspeksi rutin,
-tindakan korektif, serta dashboard dan laporan (LTIFR, TRIR, peta risiko, kepatuhan inspeksi).
+Modul AKPSatu PT Adhi Kartiko Pratama Tbk untuk **laporan hazard** dan **inspeksi rutin**, dengan fokus pada **akuntabilitas**:
+setiap temuan punya penanggung jawab (PIC), tenggat sesuai risikonya, bukti penyelesaian, dan verifikasi HSE.
 
 Stack: Laravel 12, PHP 8.3, MySQL/MariaDB, Bootstrap 5 (tema HRIS), Chart.js 4.4.3, login lewat AKPSatu (`akp/portal-sso`).
 Karyawan disinkronkan dari **HRIS** (API baca-saja) dan notifikasi dikirim lewat **AKP Mail**.
+Kode modul di Portal tetap `ssap-safety`.
 
 ## Fitur
 
 | Modul | Isi |
 |---|---|
-| **Dashboard** | Hari tanpa LTI, LTIFR/TRIR/Severity Rate, tren per bulan, jenis & keparahan, peta panas risiko 5x5, per lokasi/departemen, akar masalah, status tindakan, pelapor teraktif. Pelapor biasa melihat ringkasan pribadi. |
-| **Laporan Insiden** | 10 jenis (Fatal, LTI, RWC, MTC, P3K, kebakaran, kendaraan, properti, lingkungan, near miss), korban/saksi (cari dari HRIS), potensi risiko, foto/dokumen, investigasi 5-Why + akar masalah, alur Dilaporkan → Investigasi → Tindak lanjut → Ditutup, cetak A4. |
-| **Jenis kejadian** | Mengikuti format laporan kecelakaan: **A** Kecelakaan Tambang (KEPMEN ESDM 1827/2018: Fatality, Cidera Berat, Cidera Ringan), **B** Kecelakaan Umum (ANSI: RWI, MTI, FAI, Property Damage), **C** Pencemaran Lingkungan, **D** Fire Case, **E** Nearmiss. Rekap A–E ada di Laporan & Grafik dan Ringkasan Bulanan (Total Mining Accident Case, Total Accident Case, dst). Definisi & ambang hari kerja hilang ada di `config/ssap.php`. |
-| **Monitoring LPI Kontraktor** | Master kontraktor area **IUP / IUJP**; insiden dapat dikaitkan ke kontraktor, lalu LPI (Laporan Penyelidikan Insiden) wajib masuk sebelum tenggat (Fatal 3 hari, Cidera Berat 5 hari, lainnya 7 hari; Nearmiss dikecualikan). HSE mencatat LPI diterima, menyetujui, atau meminta revisi. Dashboard per kontraktor: diterima, tepat waktu, terlambat, revisi, rata-rata hari; pengingat email harian ke PIC kontraktor; ekspor CSV. |
-| **Hazard Report** | Penilaian risiko matriks 5x5 dengan tenggat otomatis (Ekstrem 1 hari … Rendah 14 hari), penugasan PIC, tutup otomatis saat semua tindakan terverifikasi. |
-| **Inspeksi Rutin** | Template checklist (5 bawaan, bisa diubah), isian Sesuai / Tidak sesuai / N/A, skor otomatis, **temuan otomatis menjadi hazard**, dashboard kepatuhan terhadap target bulanan. |
-| **Tindakan Korektif** | HSE menugaskan PIC + tenggat → PIC memperbarui dengan bukti → HSE memverifikasi/mengembalikan. Pengingat harian. |
-| **Laporan & Grafik** | Filter periode/lokasi, rekap per jenis/lokasi/bulan, ekspor CSV (insiden, hazard, tindakan), **Ringkasan Bulanan** siap cetak/PDF dengan kolom tanda tangan. |
-| **Pengelolaan** | Jam kerja bulanan per lokasi, lokasi/site, template inspeksi, penerima notifikasi, status & tes integrasi HRIS / AKP Mail. |
-| **Standar Pelaporan** | Halaman rujukan klasifikasi, matriks risiko, tenggat, dan rumus (dibaca dari `config/ssap.php`). |
+| **Hazard Report** | Formulir dengan foto dan penilaian risiko matriks 5x5; tenggat otomatis (Ekstrem 1 hari, Tinggi 3, Sedang 7, Rendah 14). HSE menugaskan PIC; PIC mengerjakan dengan bukti; HSE memverifikasi atau mengembalikan; hazard otomatis selesai saat semua tindakannya terverifikasi. |
+| **Inspeksi Rutin** | Template checklist (5 bawaan, bisa diubah) dengan target per bulan; isian Sesuai / Tidak sesuai / N/A; skor otomatis; **temuan "Tidak sesuai" otomatis menjadi hazard**. |
+| **Dashboard** (admin, HSE, manajer) | Ringkasan hazard, inspeksi, dan akuntabilitas: penyelesaian, tepat waktu (SLA), umur hazard terbuka, peta risiko, tren, kepatuhan jadwal inspeksi, papan PIC, inspeksi tertinggal target. Pelapor biasa melihat ringkasan pribadi. |
+| **Dashboard Hazard** | Tren per tingkat risiko, kategori, lokasi, departemen pelapor, aging, peta risiko, status tindakan, rekap risiko x status, pelapor teraktif. |
+| **Dashboard Inspeksi** | Inspeksi vs target per bulan, skor, per lokasi, pencapaian per template, temuan yang paling sering berulang. |
+| **Akuntabilitas PIC** | Kinerja per PIC dan per departemen (ditugaskan, terbuka, terlambat, selesai, % tepat waktu, rata-rata hari), tindakan terlambat, papan inspektor, template tertinggal. |
+| **Laporan & Grafik** | Filter periode/lokasi, grafik hazard + inspeksi, rekap tabel (risiko, kategori, lokasi, PIC, template, bulanan), **unduh CSV** (hazard, inspeksi, temuan inspeksi, tindakan), dan **Ringkasan Bulanan** siap cetak/PDF dengan kolom tanda tangan. |
+| **Pengelolaan** | Template inspeksi, lokasi/site, penerima notifikasi, status & tes integrasi HRIS / AKP Mail. |
+| **Standar Pelaporan** | Matriks risiko, tenggat, alur, dan rumus indikator (dibaca dari `config/ssap.php`). |
+
+### Target bulanan & hierarki (HRIS)
+
+SAP membaca **grade** dan **atasan langsung** setiap karyawan dari HRIS (`grade`, `supervisor_nik` pada `/api/integrations/employees`).
+
+| Grade | Target bulanan | Yang dilihat |
+|---|---|---|
+| 3 dan 4 | hazard + inspeksi (diatur admin di **Pengaturan**) | hanya miliknya sendiri |
+| 5 | idem | dirinya dan seluruh bawahan (langsung maupun tidak langsung) |
+| 6 ke atas (kepala departemen) | tidak ada target | seluruh departemen dan targetnya |
+
+Menu **Target Saya / Tim / Departemen** menampilkan capaian, siapa yang belum memenuhi target, dan grafik per departemen. Admin, HSE, dan manajer melihat seluruh departemen.
+Hazard yang dihitung adalah laporan yang dibuat sendiri; temuan otomatis dari inspeksi tidak dihitung. Mulai tanggal 20, ringkasan harian HSE memuat jumlah karyawan yang belum mencapai target.
+Bila grade tidak terbaca dari HRIS, pengguna diperlakukan sebagai grade 3-4 (hanya miliknya sendiri). Data demo menyertakan hierarki rekaan di cache HRIS (hanya terbaca bila `HRIS_API_URL`/`HRIS_API_TOKEN` terisi).
+
+### Definisi indikator
+
+- **Penyelesaian** = hazard selesai / seluruh hazard pada periode.
+- **Tepat waktu (SLA)** = hazard ditutup pada atau sebelum tenggat / seluruh hazard selesai.
+- **Terlambat** = hazard (atau tindakan) terbuka yang melewati tenggat.
+- **Skor inspeksi** = butir sesuai / (sesuai + tidak sesuai) x 100%; N/A tidak dihitung. Baik >= 90%, cukup >= 75%.
+- **Kepatuhan inspeksi** = inspeksi terlaksana / (target bulanan template x bulan berjalan).
 
 ## Level akses (`config/sso.php`)
 
 | Level | Boleh |
 |---|---|
 | `admin` | Semua, termasuk lokasi, pengaturan, hapus laporan |
-| `hse` | Menangani laporan (investigasi, tutup, tugaskan & verifikasi tindakan), jam kerja, template inspeksi, laporan |
+| `hse` | Menugaskan PIC, memverifikasi tindakan, menutup/menolak hazard, template inspeksi, dashboard & laporan |
 | `manager` | Melihat seluruh data, dashboard, laporan & ekspor (tanpa mengubah) |
-| `user` | Membuat laporan/inspeksi, melihat laporannya sendiri, mengerjakan tindakan yang ditugaskan |
+| `user` | Membuat hazard & inspeksi, melihat laporannya sendiri, mengerjakan tindakan yang ditugaskan |
 
 Level dicek di route (`portal.role:`) dan di controller (`App\Support\Access`). Jangan ubah kode level setelah ada pengguna.
 
@@ -36,9 +58,9 @@ Level dicek di route (`portal.role:`) dan di controller (`App\Support\Access`). 
 
 - **HRIS**: `HRIS_API_URL`, `HRIS_API_TOKEN` (sama dengan `HRIS_API_TOKEN` di HRIS). Membaca `GET /api/integrations/employees` (cache 10 menit, disegarkan tiap jam).
   Hanya NIK, nama, departemen, jabatan, email yang dipakai; tidak ada tabel karyawan. Bila HRIS mati atau token kosong, formulir tetap bisa diisi manual.
-- **AKP Mail**: `MAILSVC_URL`, `MAILSVC_TOKEN` (token `akpm_…` dari AKP Mail > Aplikasi). Email dicatat di tabel `email_logs`, bisa dikirim ulang dari Pengaturan.
-  Tanpa token, email memakai `MAIL_*` Laravel (lokal: log).
-- Penerima HSE/manajemen/insiden berat diatur di **Pengaturan** (nilai awal dari `SSAP_NOTIFY_*`).
+- **AKP Mail**: `MAILSVC_URL`, `MAILSVC_TOKEN` (token `akpm_...` dari AKP Mail > Aplikasi). Email dicatat di tabel `email_logs`, bisa dikirim ulang dari Pengaturan.
+  Tanpa token, email memakai `MAIL_*` Laravel (lokal: log). Email: hazard baru (HSE; ekstrem juga ke manajemen), penugasan PIC, tindakan selesai, hasil verifikasi, pengingat harian, ringkasan harian HSE.
+- Penerima HSE/manajemen/hazard ekstrem diatur di **Pengaturan** (nilai awal dari `SSAP_NOTIFY_*`).
 
 ## Menjalankan di lokal
 
@@ -52,16 +74,16 @@ php artisan serve --port=8009
 
 1. Nyalakan MySQL XAMPP, buat database `akp_ssap_safety` (utf8mb4).
 2. Portal > Modul > Tambah modul: kode `ssap-safety`, URL `http://localhost:8009`; salin rahasia dari halaman Integrasi ke `.env`.
-3. `php artisan portal-sso:check`, lalu buka Portal dan klik modul **SAP Safety**. Beri level di Portal > Pengguna & Akses.
-4. Login sebagai admin, tambahkan **Lokasi / Site** dan isi **Jam Kerja**.
+3. `php artisan portal-sso:check`, lalu buka Portal dan klik modul. Beri level di Portal > Pengguna & Akses (lalu **Deteksi level**).
+4. Login sebagai admin, tambahkan **Lokasi / Site** dan atur penerima notifikasi.
 
 **Data demo (rekaan, hanya non-produksi):**
 
 ```
-php artisan ssap:demo --fresh     # 14 bulan insiden, hazard, inspeksi, tindakan, jam kerja
+php artisan ssap:demo --fresh     # 14 bulan hazard, inspeksi, tindakan; PIC andal dan PIC yang sering terlambat
 ```
 
-Perintah lain: `php artisan ssap:remind` (pengingat + ringkasan HSE), `php artisan ssap:sync-hris`, `php artisan schedule:work` (penjadwal).
+Perintah lain: `php artisan ssap:remind` (pengingat PIC + ringkasan HSE), `php artisan ssap:sync-hris`, `php artisan schedule:work` (penjadwal).
 
 ## Tes
 
@@ -69,22 +91,29 @@ Perintah lain: `php artisan ssap:remind` (pengingat + ringkasan HSE), `php artis
 php artisan test
 ```
 
-Mencakup akses per level, sidebar, alur insiden/hazard/tindakan/inspeksi, perhitungan LTIFR, ekspor, lampiran privat, HRIS & AKP Mail (dipalsukan, tidak memanggil layanan asli).
+Mencakup akses per level, menu, alur hazard (lapor, tugaskan, kerjakan, verifikasi, tutup otomatis), inspeksi (skor, temuan menjadi hazard), perhitungan SLA/aging/papan PIC, ekspor CSV, lampiran privat, pengingat, HRIS & AKP Mail (dipalsukan, tidak memanggil layanan asli).
 
 ## Pemasangan di server (Docker, Portainer, CI/CD)
 
 Mengikuti `STANDAR-APLIKASI.md` (bagian 10-17). Port server 8112, port database 127.0.0.1:3314, image `ghcr.io/eddyyucca/akp-ssap-safety`, alamat `ssap.lameruru.web.id`.
 Stack terdiri dari `db`, `ssap` (web), dan `scheduler` (penjadwal, image sama). Periksa dulu di Portainer bahwa port 8112 dan 3314 belum terpakai.
 
-1. GitHub: buat repo privat (mis. `SSAP-Safety-AKP`), isi secret `GHCR_TOKEN` dan `PORTAINER_WEBHOOK_URL`, lalu `git remote add origin ...` dan push `main`.
+1. GitHub: buat repo privat (mis. `SAP-Safety-AKP`), isi secret `GHCR_TOKEN` dan `PORTAINER_WEBHOOK_URL`, lalu `git remote add origin ...` dan push `main`.
 2. Server: pasang runner (label `akp-server`) sebagai layanan Windows di `C:\actions-runner-ssap-safety`.
 3. Portal server: daftarkan modul kode `ssap-safety`, URL `https://ssap.lameruru.web.id`, salin rahasia SSO, lalu **Deteksi level** (admin, hse, manager, user).
 4. Laptop: `powershell -ExecutionPolicy Bypass -File deploy\portainer\buat-isian-ssap.ps1`, lalu tempel isiannya di Portainer. Isi `HRIS_API_TOKEN` dan `MAILSVC_TOKEN`.
 5. Portainer: Add stack > nama `ssap-safety` > Repository > `deploy/portainer/docker-compose.git.yml` > aktifkan webhook > salin ke secret GitHub.
 6. Cloudflare: tambah subdomain `ssap` ke port 8112, lalu Tes koneksi di Portal.
-7. Setelah login pertama sebagai admin: tambah lokasi, isi jam kerja, isi penerima notifikasi di Pengaturan, uji **Tes koneksi HRIS** dan **Email uji**.
+7. Setelah login pertama sebagai admin: tambah lokasi, isi penerima notifikasi di Pengaturan, uji **Tes koneksi HRIS** dan **Email uji**.
 
 Lampiran tersimpan di volume `ssap_storage` (privat, hanya lewat aplikasi). Workflow menjalankan tes lebih dulu; image hanya dibuat dan dipasang bila semua tes lulus.
+
+## Modul yang diarsipkan
+
+Modul **laporan insiden, monitoring LPI kontraktor (IUP/IUJP), dan jam kerja (LTIFR/TRIR)** dikeluarkan dari aplikasi untuk memfokuskan SAP pada hazard dan inspeksi.
+Kodenya disimpan di `arsip/modul-insiden-lpi/` (tidak dimuat aplikasi dan tidak ikut image Docker), dan tabel databasenya
+(`incidents`, `incident_persons`, `contractors`, `man_hours`) **tidak dihapus**, jadi data lama tetap utuh dan modulnya bisa dipulihkan.
+Tindakan lama yang bersumber dari insiden tetap tersimpan tetapi tidak ditampilkan.
 
 ## Catatan data
 

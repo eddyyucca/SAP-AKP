@@ -65,7 +65,7 @@ class InspectionTemplateController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'category' => ['required', Rule::in(array_keys(config('ssap.hazard_categories')))],
+            'category' => ['required', Rule::in(array_keys(config('ssap.area_categories')))],
             'description' => ['nullable', 'string', 'max:255'],
             'target_per_month' => ['required', 'integer', 'between:0,500'],
             'items' => ['required', 'string', 'max:20000'],

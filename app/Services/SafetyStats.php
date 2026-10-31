@@ -4,27 +4,26 @@ namespace App\Services;
 
 use App\Models\CorrectiveAction;
 use App\Models\Hazard;
-use App\Models\Incident;
 use App\Models\Location;
-use App\Models\ManHour;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Semua angka dashboard dan laporan. Satu kelas = satu definisi untuk setiap indikator, jadi dashboard, laporan,
- * dan cetakan selalu sama. Pengelompokan dilakukan di PHP supaya tidak bergantung pada fungsi tanggal MySQL/SQLite.
+ * Angka dashboard dan laporan HAZARD + AKUNTABILITAS (PIC, departemen, tenggat, tindakan).
+ * Satu kelas = satu definisi untuk setiap indikator, jadi dashboard, laporan, dan cetakan selalu sama.
+ * Pengelompokan dilakukan di PHP supaya tidak bergantung pada fungsi tanggal MySQL/SQLite.
  *
- * Definisi (standar di halaman "Standar Pelaporan"):
- *  LTIFR = kasus LTI (termasuk fatal) x 1.000.000 / jam kerja
- *  TRIR  = kasus recordable (fatal, LTI, RWC, MTC) x 1.000.000 / jam kerja
- *  SR    = hari kerja hilang x 1.000.000 / jam kerja
+ * Definisi:
+ *  Tepat waktu (SLA) = hazard selesai pada atau sebelum tenggat (due_date) / seluruh hazard selesai
+ *  Terlambat         = hazard terbuka yang lewat tenggat
+ *  Penyelesaian      = hazard selesai / seluruh hazard pada periode
  */
 class SafetyStats
 {
-    private ?Collection $incidents = null;
-
     private ?Collection $hazards = null;
+
+    private ?Collection $open = null;
 
     public function __construct(
         public readonly CarbonInterface $from,
@@ -38,24 +37,14 @@ class SafetyStats
         return new self(Carbon::create($year, 1, 1)->startOfDay(), Carbon::create($year, 12, 31)->endOfDay(), $locationId);
     }
 
-    /** @return Collection<int, Incident> insiden (bukan batal) dalam periode */
-    public function incidents(): Collection
-    {
-        return $this->incidents ??= Incident::query()
-            ->where('status', '!=', 'cancelled')
-            ->whereBetween('occurred_at', [$this->from, $this->to])
-            ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->get(['id', 'number', 'type', 'severity', 'occurred_at', 'created_at', 'location_id', 'status', 'lost_days', 'injured_count', 'reporter_nik', 'reporter_name', 'reporter_department', 'closed_at', 'investigation_due', 'root_cause_category']);
-    }
-
-    /** @return Collection<int, Hazard> hazard (bukan ditolak) dalam periode */
+    /** @return Collection<int, Hazard> hazard (bukan ditolak) yang ditemukan dalam periode */
     public function hazards(): Collection
     {
         return $this->hazards ??= Hazard::query()
             ->where('status', '!=', 'rejected')
             ->whereBetween('observed_at', [$this->from, $this->to])
             ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->get(['id', 'number', 'observed_at', 'created_at', 'location_id', 'category', 'likelihood', 'consequence', 'risk_score', 'risk_level', 'reporter_nik', 'reporter_name', 'reporter_department', 'status', 'closed_at', 'due_date']);
+            ->get(['id', 'number', 'title', 'observed_at', 'created_at', 'location_id', 'category', 'reporter_nik', 'reporter_name', 'reporter_department', 'status', 'closed_at', 'due_date', 'pic_nik', 'pic_name', 'pic_department']);
     }
 
     /** Bulan-bulan dalam periode (maks. 36 terakhir). @return list<array{key:string,label:string}> */
@@ -73,315 +62,234 @@ class SafetyStats
         return array_slice($months, -36);
     }
 
-    /** Jam kerja per bulan ("2026-03" => 120000). @return array<string,int> */
-    public function manHoursByMonth(): array
+    private static function isOpen(Hazard $h): bool
     {
-        $rows = ManHour::query()
-            ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->where(function ($q) {
-                $q->where('year', '>', $this->from->year)->orWhere(fn ($w) => $w->where('year', $this->from->year)->where('month', '>=', $this->from->month));
-            })
-            ->where(function ($q) {
-                $q->where('year', '<', $this->to->year)->orWhere(fn ($w) => $w->where('year', $this->to->year)->where('month', '<=', $this->to->month));
-            })
-            ->get();
-
-        $by = [];
-        foreach ($rows as $row) {
-            $key = sprintf('%04d-%02d', $row->year, $row->month);
-            $by[$key] = ($by[$key] ?? 0) + (int) $row->hours;
-        }
-
-        return $by;
+        return in_array($h->status, ['open', 'in_progress'], true);
     }
 
-    public static function rate(int|float $count, int|float $hours): ?float
+    private static function isLate(Hazard $h): bool
     {
-        return $hours > 0 ? round($count * config('ssap.rate_base') / $hours, 2) : null;
+        return self::isOpen($h) && $h->due_date && $h->due_date->lt(today());
+    }
+
+    /** Selesai tepat waktu? Null bila belum selesai atau tanpa tenggat. */
+    private static function onTime(Hazard $h): ?bool
+    {
+        if ($h->status !== 'closed' || ! $h->closed_at || ! $h->due_date) {
+            return null;
+        }
+
+        return $h->closed_at->copy()->startOfDay()->lte($h->due_date);
+    }
+
+    private static function daysToClose(Hazard $h): float
+    {
+        return round($h->created_at->diffInHours($h->closed_at, false) / 24, 1);
+    }
+
+    private static function pct(int|float $part, int|float $whole): ?int
+    {
+        return $whole > 0 ? (int) round($part * 100 / $whole) : null;
     }
 
     public function kpis(): array
     {
-        $types = config('ssap.incident_types');
-        $incidents = $this->incidents();
-        $hazards = $this->hazards();
-        $hours = array_sum($this->manHoursByMonth());
-
-        $lti = $incidents->filter(fn ($i) => $types[$i->type]['lti'] ?? false)->count();
-        $fatal = $incidents->where('type', 'fatality')->count();
-        $recordable = $incidents->filter(fn ($i) => $types[$i->type]['recordable'] ?? false)->count();
-        $lostDays = (int) $incidents->sum('lost_days');
-        $nearMiss = $incidents->where('type', 'near_miss')->count();
-
-        $closedHazards = $hazards->where('status', 'closed');
-        $actions = $this->actionsQuery()->get(['id', 'status', 'due_date', 'completed_at', 'verified_at']);
-
-        $closedIncidents = $incidents->where('status', 'closed')->filter(fn ($i) => $i->closed_at);
-        $reportedLate = $incidents->filter(fn ($i) => $i->created_at && $i->occurred_at && $i->occurred_at->diffInHours($i->created_at, false) > ($this->limit($i->type)))->count();
+        $h = $this->hazards();
+        $closed = $h->where('status', 'closed');
+        $timed = $closed->filter(fn ($x) => self::onTime($x) !== null);
+        $actions = $this->actionsQuery()->get(['id', 'status', 'due_date']);
+        $openAll = $this->openHazards();
 
         return [
-            'incidents' => $incidents->count(),
-            'incidents_open' => $incidents->whereNotIn('status', ['closed'])->count(),
-            'near_miss' => $nearMiss,
-            'near_miss_ratio' => $recordable > 0 ? round($nearMiss / $recordable, 1) : null,
-            'lti' => $lti,
-            'fatal' => $fatal,
-            'recordable' => $recordable,
-            'injured' => (int) $incidents->sum('injured_count'),
-            'lost_days' => $lostDays,
-            'man_hours' => $hours,
-            'ltifr' => self::rate($lti, $hours),
-            'trir' => self::rate($recordable, $hours),
-            'sr' => self::rate($lostDays, $hours),
-            'days_without_lti' => $this->daysWithoutLti(),
-            'investigation_overdue' => $incidents->filter(fn ($i) => in_array($i->status, ['submitted', 'investigating'], true) && $i->investigation_due && $i->investigation_due->lt(today()))->count(),
-            'avg_close_days' => $closedIncidents->isEmpty() ? null : round($closedIncidents->avg(fn ($i) => $i->created_at->diffInHours($i->closed_at, false) / 24), 1),
-            'reported_late' => $reportedLate,
-            'reported_late_pct' => $incidents->isEmpty() ? null : round($reportedLate * 100 / $incidents->count()),
-
-            'hazards' => $hazards->count(),
-            'hazards_open' => $hazards->whereIn('status', ['open', 'in_progress'])->count(),
-            'hazards_closed' => $closedHazards->count(),
-            'hazards_high' => $hazards->whereIn('risk_level', ['high', 'extreme'])->whereIn('status', ['open', 'in_progress'])->count(),
-            'hazards_overdue' => $hazards->filter(fn ($h) => in_array($h->status, ['open', 'in_progress'], true) && $h->due_date && $h->due_date->lt(today()))->count(),
-            'hazard_close_pct' => $hazards->isEmpty() ? null : round($closedHazards->count() * 100 / $hazards->count()),
-            'hazard_avg_days' => $closedHazards->filter(fn ($h) => $h->closed_at)->isEmpty() ? null : round($closedHazards->filter(fn ($h) => $h->closed_at)->avg(fn ($h) => $h->created_at->diffInHours($h->closed_at, false) / 24), 1),
+            'hazards' => $h->count(),
+            'open' => $h->filter(fn ($x) => self::isOpen($x))->count(),
+            'closed' => $closed->count(),
+            'closure_pct' => self::pct($closed->count(), $h->count()),
+            'overdue' => $h->filter(fn ($x) => self::isLate($x))->count(),
+            'unassigned' => $h->where('status', 'open')->whereNull('pic_name')->count(),
+            'sla_pct' => self::pct($timed->filter(fn ($x) => self::onTime($x))->count(), $timed->count()),
+            'avg_days' => $closed->filter(fn ($x) => $x->closed_at)->isEmpty() ? null : round($closed->filter(fn ($x) => $x->closed_at)->avg(fn ($x) => self::daysToClose($x)), 1),
+            'tta' => $h->where('category', 'tta')->count(),
+            'kta' => $h->where('category', 'kta')->count(),
+            // Kondisi terkini (seluruh riwayat, mengikuti filter lokasi)
+            'open_now' => $openAll->count(),
+            'tta_open_now' => $openAll->where('category', 'tta')->count(),
+            'kta_open_now' => $openAll->where('category', 'kta')->count(),
+            'overdue_now' => $openAll->filter(fn ($x) => self::isLate($x))->count(),
+            'oldest_open_days' => $openAll->isEmpty() ? null : (int) $openAll->max(fn ($x) => $x->created_at->copy()->startOfDay()->diffInDays(today())),
 
             'actions' => $actions->count(),
             'actions_pending' => $actions->whereIn('status', ['open', 'in_progress', 'done'])->count(),
+            'actions_verify' => $actions->where('status', 'done')->count(),
             'actions_overdue' => $actions->filter(fn ($a) => in_array($a->status, ['open', 'in_progress'], true) && $a->due_date->lt(today()))->count(),
-            'actions_done_pct' => $actions->isEmpty() ? null : round($actions->where('status', 'verified')->count() * 100 / $actions->count()),
+            'actions_done_pct' => self::pct($actions->where('status', 'verified')->count(), $actions->count()),
         ];
     }
 
-    private function limit(string $type): int
+    /** Hazard yang MASIH TERBUKA, seluruh riwayat (bukan hanya periode), mengikuti filter lokasi. */
+    public function openHazards(): Collection
     {
-        $limits = config('ssap.notify_hours');
-
-        return (int) ($limits[$type] ?? $limits['default']);
-    }
-
-    /** Hari sejak LTI/fatal terakhir (seluruh riwayat, mengikuti filter lokasi). Null = belum pernah ada. */
-    public function daysWithoutLti(): ?int
-    {
-        $ltiTypes = collect(config('ssap.incident_types'))->filter(fn ($t) => $t['lti'])->keys()->all();
-
-        $last = Incident::query()
-            ->where('status', '!=', 'cancelled')
-            ->whereIn('type', $ltiTypes)
-            ->where('occurred_at', '<=', now())
+        return $this->open ??= Hazard::query()->open()
             ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->max('occurred_at');
-
-        return $last ? (int) Carbon::parse($last)->startOfDay()->diffInDays(today()) : null;
+            ->get(['id', 'number', 'title', 'created_at', 'observed_at', 'location_id', 'category', 'status', 'due_date', 'pic_name', 'pic_department']);
     }
 
-    /** Tren bulanan jumlah kejadian per kelompok + laju kecelakaan per bulan. */
+    /** Tren bulanan: dilaporkan (TTA/KTA, bertumpuk) vs diselesaikan, dan penyelesaian tepat waktu. */
     public function trend(): array
     {
         $months = $this->months();
-        $groups = config('ssap.incident_groups');
-        $types = config('ssap.incident_types');
-        $hours = $this->manHoursByMonth();
+        $keys = array_column($months, 'key');
+        $cats = config('ssap.hazard_categories');
 
-        $series = [];
-        foreach ($groups as $key => $group) {
-            $series[$key] = array_fill_keys(array_column($months, 'key'), 0);
+        $byCat = [];
+        foreach ($cats as $ck => $_) {
+            $byCat[$ck] = array_fill_keys($keys, 0);
         }
+        $opened = $closed = $onTime = $late = array_fill_keys($keys, 0);
 
-        $lti = $recordable = $lost = array_fill_keys(array_column($months, 'key'), 0);
-
-        foreach ($this->incidents() as $incident) {
-            $month = $incident->occurred_at->format('Y-m');
-            if (! isset($series['near_miss'][$month])) {
-                continue;
+        foreach ($this->hazards() as $hz) {
+            $m = $hz->observed_at->format('Y-m');
+            if (isset($opened[$m])) {
+                $opened[$m]++;
+                $byCat[$hz->category][$m] = ($byCat[$hz->category][$m] ?? 0) + 1;
             }
-            $meta = $types[$incident->type] ?? null;
-            $series[$meta['group'] ?? 'asset'][$month]++;
-            $lti[$month] += ($meta['lti'] ?? false) ? 1 : 0;
-            $recordable[$month] += ($meta['recordable'] ?? false) ? 1 : 0;
-            $lost[$month] += (int) $incident->lost_days;
-        }
-
-        $hazardOpened = $hazardClosed = array_fill_keys(array_column($months, 'key'), 0);
-        foreach ($this->hazards() as $hazard) {
-            $opened = $hazard->observed_at->format('Y-m');
-            if (isset($hazardOpened[$opened])) {
-                $hazardOpened[$opened]++;
-            }
-            if ($hazard->status === 'closed' && $hazard->closed_at) {
-                $closed = $hazard->closed_at->format('Y-m');
-                if (isset($hazardClosed[$closed])) {
-                    $hazardClosed[$closed]++;
+            if ($hz->status === 'closed' && $hz->closed_at) {
+                $cm = $hz->closed_at->format('Y-m');
+                if (isset($closed[$cm])) {
+                    $closed[$cm]++;
+                    self::onTime($hz) ? $onTime[$cm]++ : $late[$cm]++;
                 }
             }
         }
 
         return [
             'labels' => array_column($months, 'label'),
-            'groups' => collect($groups)->map(fn ($g, $key) => ['label' => $g['label'], 'color' => $g['color'], 'data' => array_values($series[$key])])->values()->all(),
-            'ltifr' => array_map(fn ($m) => self::rate($lti[$m['key']], $hours[$m['key']] ?? 0), $months),
-            'trir' => array_map(fn ($m) => self::rate($recordable[$m['key']], $hours[$m['key']] ?? 0), $months),
-            'hours' => array_map(fn ($m) => (int) ($hours[$m['key']] ?? 0), $months),
-            'hazard_opened' => array_values($hazardOpened),
-            'hazard_closed' => array_values($hazardClosed),
+            'categories' => collect($cats)->map(fn ($label, $k) => ['label' => $label, 'color' => config("ssap.hazard_category_colors.{$k}"), 'data' => array_values($byCat[$k])])->values()->all(),
+            'opened' => array_values($opened),
+            'closed' => array_values($closed),
+            'sla' => array_map(fn ($k) => self::pct($onTime[$k], $onTime[$k] + $late[$k]), $keys),
         ];
     }
 
-    /** @return array{labels:list<string>,data:list<int>,colors:list<string>} */
-    public function byType(): array
+    /** Umur hazard yang masih terbuka. */
+    public function aging(): array
     {
-        $counts = $this->incidents()->countBy('type');
-        $labels = $data = $colors = [];
+        $buckets = config('ssap.aging_buckets');
+        $counts = array_fill(0, count($buckets), 0);
+        $overdue = array_fill(0, count($buckets), 0);
 
-        foreach (config('ssap.incident_types') as $key => $type) {
-            if (($counts[$key] ?? 0) > 0) {
-                $labels[] = $type['short'];
-                $data[] = $counts[$key];
-                $colors[] = $type['color'];
+        foreach ($this->openHazards() as $h) {
+            $age = $h->created_at->copy()->startOfDay()->diffInDays(today());
+            foreach ($buckets as $i => [$max]) {
+                if ($max === null || $age <= $max) {
+                    $counts[$i]++;
+                    if (self::isLate($h)) {
+                        $overdue[$i]++;
+                    }
+                    break;
+                }
             }
         }
 
-        return compact('labels', 'data', 'colors');
+        return [
+            'labels' => array_column($buckets, 1),
+            'data' => $counts,
+            'overdue' => $overdue,
+            'colors' => ['#38c0b0', '#84cc16', '#eab308', '#f97316', '#dc2626'],
+        ];
     }
 
-    public function bySeverity(): array
+    /** Komposisi TTA vs KTA. */
+    public function byCategory(): array
     {
-        $counts = $this->incidents()->countBy('severity');
-        $labels = $data = $colors = [];
+        $cats = config('ssap.hazard_categories');
+        $counts = $this->hazards()->countBy('category');
 
-        foreach (config('ssap.severity') as $level => $meta) {
-            $labels[] = $level.' - '.$meta['label'];
-            $data[] = (int) ($counts[$level] ?? 0);
-            $colors[] = $meta['color'];
-        }
-
-        return compact('labels', 'data', 'colors');
+        return [
+            'labels' => array_values($cats),
+            'data' => array_map(fn ($k) => (int) ($counts[$k] ?? 0), array_keys($cats)),
+            'colors' => array_map(fn ($k) => config("ssap.hazard_category_colors.{$k}"), array_keys($cats)),
+        ];
     }
 
-    /** Insiden dan hazard per lokasi, diurutkan dari yang terbanyak. */
+    /** Hazard per lokasi: terbuka vs selesai. */
     public function byLocation(): array
     {
         $names = Location::query()->pluck('name', 'id');
-        $incidents = $this->incidents()->countBy('location_id');
-        $hazards = $this->hazards()->countBy('location_id');
+        $rows = $this->hazards()->groupBy('location_id')->map(function ($g, $id) use ($names) {
+            $timed = $g->filter(fn ($x) => self::onTime($x) !== null);
 
-        $rows = collect($names)->map(fn ($name, $id) => [
-            'name' => $name, 'incidents' => (int) ($incidents[$id] ?? 0), 'hazards' => (int) ($hazards[$id] ?? 0),
-        ])->filter(fn ($r) => $r['incidents'] + $r['hazards'] > 0)
-            ->sortByDesc(fn ($r) => $r['incidents'] * 3 + $r['hazards'])->values();
+            return [
+                'name' => $names[$id] ?? '-', 'total' => $g->count(),
+                'open' => $g->filter(fn ($x) => self::isOpen($x))->count(), 'closed' => $g->where('status', 'closed')->count(),
+                'overdue' => $g->filter(fn ($x) => self::isLate($x))->count(),
+                'tta' => $g->where('category', 'tta')->count(), 'kta' => $g->where('category', 'kta')->count(),
+                'sla_pct' => self::pct($timed->filter(fn ($x) => self::onTime($x))->count(), $timed->count()),
+            ];
+        })->sortByDesc('total')->values();
 
-        return [
-            'labels' => $rows->pluck('name')->all(),
-            'incidents' => $rows->pluck('incidents')->all(),
-            'hazards' => $rows->pluck('hazards')->all(),
-        ];
+        return ['rows' => $rows->all(), 'labels' => $rows->pluck('name')->all(), 'open' => $rows->pluck('open')->all(), 'closed' => $rows->pluck('closed')->all(),
+            'tta' => $rows->pluck('tta')->all(), 'kta' => $rows->pluck('kta')->all()];
     }
 
-    /** Departemen paling banyak terlibat (korban/pelapor insiden dan pelapor hazard) - 8 teratas. */
+    /** Departemen PELAPOR (partisipasi) dan departemen PIC (akuntabilitas penyelesaian). */
     public function byDepartment(): array
     {
-        $incidents = $this->incidents()->countBy(fn ($i) => $i->reporter_department ?: 'Tidak diketahui');
-        $hazards = $this->hazards()->countBy(fn ($h) => $h->reporter_department ?: 'Tidak diketahui');
+        $reported = $this->hazards()->countBy(fn ($h) => $h->reporter_department ?: 'Tidak diketahui')->sortDesc()->take(8);
 
-        $rows = collect($incidents->keys()->merge($hazards->keys())->unique())
-            ->map(fn ($d) => ['name' => $d, 'incidents' => (int) ($incidents[$d] ?? 0), 'hazards' => (int) ($hazards[$d] ?? 0)])
-            ->sortByDesc(fn ($r) => $r['incidents'] + $r['hazards'])->take(8)->values();
-
-        return [
-            'labels' => $rows->pluck('name')->all(),
-            'incidents' => $rows->pluck('incidents')->all(),
-            'hazards' => $rows->pluck('hazards')->all(),
-        ];
+        return ['labels' => $reported->keys()->all(), 'data' => $reported->values()->all()];
     }
 
-    /** Pelapor teraktif (budaya pelaporan): 8 teratas dari insiden + hazard. */
-    public function topReporters(): array
+    /**
+     * Papan akuntabilitas: kinerja penyelesaian per PIC atau per departemen PIC.
+     *
+     * @param  'pic'|'department'  $by
+     * @return list<array<string, mixed>>
+     */
+    public function board(string $by = 'pic', int $limit = 12): array
     {
-        $rows = $this->incidents()->map(fn ($i) => ['key' => $i->reporter_nik ?: $i->reporter_name, 'name' => $i->reporter_name, 'dept' => $i->reporter_department, 'type' => 'i'])
-            ->concat($this->hazards()->map(fn ($h) => ['key' => $h->reporter_nik ?: $h->reporter_name, 'name' => $h->reporter_name, 'dept' => $h->reporter_department, 'type' => 'h']));
+        $assigned = $this->hazards()->filter(fn ($h) => filled($h->pic_name));
 
-        return $rows->groupBy('key')->map(fn ($g) => [
-            'name' => $g->first()['name'],
-            'dept' => $g->first()['dept'],
-            'total' => $g->count(),
-            'incidents' => $g->where('type', 'i')->count(),
-            'hazards' => $g->where('type', 'h')->count(),
-        ])->sortByDesc('total')->take(8)->values()->all();
+        return $assigned->groupBy(fn ($h) => $by === 'pic' ? $h->pic_name : ($h->pic_department ?: 'Tidak diketahui'))->map(function (Collection $g, $name) use ($by) {
+            $closed = $g->where('status', 'closed');
+            $timed = $closed->filter(fn ($x) => self::onTime($x) !== null);
+            $withClose = $closed->filter(fn ($x) => $x->closed_at);
+
+            return [
+                'name' => $name,
+                'dept' => $by === 'pic' ? ($g->first()->pic_department ?: '-') : null,
+                'assigned' => $g->count(),
+                'open' => $g->filter(fn ($x) => self::isOpen($x))->count(),
+                'overdue' => $g->filter(fn ($x) => self::isLate($x))->count(),
+                'closed' => $closed->count(),
+                'sla_pct' => self::pct($timed->filter(fn ($x) => self::onTime($x))->count(), $timed->count()),
+                'avg_days' => $withClose->isEmpty() ? null : round($withClose->avg(fn ($x) => self::daysToClose($x)), 1),
+            ];
+        })->sortBy([['overdue', 'desc'], ['open', 'desc'], ['assigned', 'desc']])->take($limit)->values()->all();
     }
 
-    public function hazardByCategory(): array
+    /** Pelapor teraktif (budaya pelaporan). */
+    public function topReporters(int $limit = 8): array
     {
-        $counts = $this->hazards()->countBy('category')->sortDesc();
-        $labels = config('ssap.hazard_categories');
-
-        return [
-            'labels' => $counts->keys()->map(fn ($k) => $labels[$k] ?? $k)->all(),
-            'data' => $counts->values()->all(),
-        ];
+        return $this->hazards()->groupBy(fn ($h) => $h->reporter_nik ?: $h->reporter_name)->map(fn (Collection $g) => [
+            'name' => $g->first()->reporter_name, 'dept' => $g->first()->reporter_department, 'total' => $g->count(),
+            'tta' => $g->where('category', 'tta')->count(), 'kta' => $g->where('category', 'kta')->count(),
+        ])->sortByDesc('total')->take($limit)->values()->all();
     }
 
-    public function hazardByLevel(): array
-    {
-        $counts = $this->hazards()->countBy('risk_level');
-        $levels = config('ssap.risk_levels');
-
-        return [
-            'labels' => array_column($levels, 'label'),
-            'data' => array_map(fn ($k) => (int) ($counts[$k] ?? 0), array_keys($levels)),
-            'colors' => array_column($levels, 'color'),
-        ];
-    }
-
-    /** Peta panas risiko 5x5 untuk hazard yang MASIH TERBUKA (seluruh riwayat, mengikuti filter lokasi). */
-    public function heatmap(): array
-    {
-        $open = Hazard::query()->open()
-            ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->get(['likelihood', 'consequence']);
-
-        $cells = [];
-        for ($l = 5; $l >= 1; $l--) {
-            for ($c = 1; $c <= 5; $c++) {
-                $score = $l * $c;
-                $level = \App\Support\Risk::level($score);
-                $cells[] = [
-                    'l' => $l, 'c' => $c, 'score' => $score, 'level' => $level,
-                    'count' => $open->where('likelihood', $l)->where('consequence', $c)->count(),
-                ];
-            }
-        }
-
-        return ['cells' => $cells, 'total' => $open->count()];
-    }
-
-    public function rootCauses(): array
-    {
-        $labels = config('ssap.root_cause_categories');
-        $counts = $this->incidents()->filter(fn ($i) => filled($i->root_cause_category))->countBy('root_cause_category')->sortDesc();
-
-        return [
-            'labels' => $counts->keys()->map(fn ($k) => $labels[$k] ?? $k)->all(),
-            'data' => $counts->values()->all(),
-        ];
-    }
-
-    /** Status tindakan korektif untuk insiden/hazard dalam periode. */
+    /** Status tindakan korektif untuk hazard dalam periode. */
     public function actionStatus(): array
     {
         $actions = $this->actionsQuery()->get(['status', 'due_date']);
-
         $overdue = $actions->filter(fn ($a) => in_array($a->status, ['open', 'in_progress'], true) && $a->due_date->lt(today()))->count();
-        $statuses = config('ssap.action_statuses');
-        $labels = $data = $colors = [];
         $palette = ['open' => '#94a3b8', 'in_progress' => '#f59e0b', 'done' => '#3b82f6', 'verified' => '#16a34a'];
+        $labels = $data = $colors = [];
 
-        foreach ($statuses as $key => $meta) {
+        foreach (config('ssap.action_statuses') as $key => $meta) {
             $labels[] = $meta['label'];
             $data[] = $actions->where('status', $key)->count();
             $colors[] = $palette[$key];
         }
-
         $labels[] = 'Terlambat';
         $data[] = $overdue;
         $colors[] = '#dc2626';
@@ -389,69 +297,56 @@ class SafetyStats
         return compact('labels', 'data', 'colors');
     }
 
-    /**
-     * Rekap jumlah kasus per jenis, dikelompokkan A-E sesuai format laporan kecelakaan
-     * (A tambang KEPMEN 1827/2018, B umum ANSI, C lingkungan, D kebakaran, E nearmiss).
-     *
-     * @return list<array<string, mixed>>
-     */
-    public function recap(): array
-    {
-        $counts = $this->incidents()->countBy('type');
-        $types = config('ssap.incident_types');
-        $out = [];
-
-        foreach (config('ssap.incident_categories') as $key => $cat) {
-            $rows = [];
-            $total = 0;
-            foreach ($types as $typeKey => $t) {
-                if (($t['category'] ?? null) === $key) {
-                    $n = (int) ($counts[$typeKey] ?? 0);
-                    $rows[] = ['label' => $t['label'], 'count' => $n, 'color' => $t['color']];
-                    $total += $n;
-                }
-            }
-            $out[$key] = $cat + ['key' => $key, 'rows' => $rows, 'total' => $total];
-        }
-
-        foreach ($out as $key => $cat) {
-            if (! empty($cat['cumulative'])) {
-                $out[$key]['total'] = array_sum(array_map(fn ($k) => $out[$k]['total'], $cat['cumulative']));
-            }
-        }
-
-        return array_values($out);
-    }
-
-    /** Insiden yang butuh perhatian: investigasi terlambat/belum ada investigator, berat yang masih terbuka. */
-    public function attention(int $limit = 6): Collection
-    {
-        return Incident::query()->with('location:id,name')
-            ->whereNotIn('status', ['closed', 'cancelled'])
-            ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->orderByRaw('case when type in ('.collect(config('ssap.severe_types'))->map(fn ($t) => "'".$t."'")->implode(',').') then 0 else 1 end')
-            ->orderBy('investigation_due')
-            ->limit($limit)->get();
-    }
-
-    /** Hazard risiko tertinggi yang masih terbuka. */
-    public function topHazards(int $limit = 6): Collection
+    /** Hazard terbuka dengan tenggat paling dekat. */
+    public function topHazards(int $limit = 8): Collection
     {
         return Hazard::query()->with('location:id,name')->open()
             ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
-            ->orderByDesc('risk_score')->orderBy('due_date')->limit($limit)->get();
+            ->orderBy('due_date')->orderBy('id')->limit($limit)->get();
     }
 
-    /** Kueri tindakan korektif yang bersumber dari insiden/hazard dalam periode dan lokasi yang sama. */
-    private function actionsQuery()
+    /** Hazard yang butuh perhatian segera: melewati tenggat, atau belum ada PIC. */
+    public function attention(int $limit = 8): Collection
     {
-        $incidentIds = $this->incidents()->pluck('id')->all();
-        $hazardIds = $this->hazards()->pluck('id')->all();
+        return Hazard::query()->with('location:id,name')->open()
+            ->when($this->locationId, fn ($q) => $q->where('location_id', $this->locationId))
+            ->where(fn ($q) => $q->whereDate('due_date', '<', today())->orWhereNull('pic_name'))
+            ->orderBy('due_date')->orderBy('id')->limit($limit)->get();
+    }
 
-        return CorrectiveAction::query()->where(function ($q) use ($incidentIds, $hazardIds) {
-            $q->where(fn ($w) => $w->where('source_type', 'incident')->whereIn('source_id', $incidentIds ?: [0]))
-                ->orWhere(fn ($w) => $w->where('source_type', 'hazard')->whereIn('source_id', $hazardIds ?: [0]));
-        });
+    /** Kueri tindakan korektif untuk hazard yang ditemukan dalam periode. */
+    public function actionsQuery()
+    {
+        $ids = $this->hazards()->pluck('id')->all();
+
+        return CorrectiveAction::query()->where('source_type', 'hazard')->whereIn('source_id', $ids ?: [0]);
+    }
+
+    /** Rekap jenis hazard (TTA/KTA) x status (untuk tabel laporan). @return list<array<string,mixed>> */
+    public function categoryTable(): array
+    {
+        $h = $this->hazards();
+
+        return collect(config('ssap.hazard_categories'))->map(fn ($label, $key) => [
+            'key' => $key, 'label' => $label, 'color' => config("ssap.hazard_category_colors.{$key}"),
+            'total' => $h->where('category', $key)->count(),
+            'open' => $h->where('category', $key)->filter(fn ($x) => self::isOpen($x))->count(),
+            'closed' => $h->where('category', $key)->where('status', 'closed')->count(),
+            'overdue' => $h->where('category', $key)->filter(fn ($x) => self::isLate($x))->count(),
+        ])->values()->all();
+    }
+
+    /** Beban PIC: terbuka, terlambat, selesai (batang bertumpuk). */
+    public function picChart(int $limit = 8): array
+    {
+        $rows = collect($this->board('pic', $limit));
+
+        return [
+            'labels' => $rows->pluck('name')->all(),
+            'open' => $rows->map(fn ($r) => max(0, $r['open'] - $r['overdue']))->all(),
+            'overdue' => $rows->pluck('overdue')->all(),
+            'closed' => $rows->pluck('closed')->all(),
+        ];
     }
 
     /** Semua data grafik dalam satu larik (disematkan ke halaman sebagai JSON). */
@@ -459,13 +354,11 @@ class SafetyStats
     {
         return [
             'trend' => $this->trend(),
-            'type' => $this->byType(),
-            'severity' => $this->bySeverity(),
+            'aging' => $this->aging(),
+            'category' => $this->byCategory(),
+            'pic' => $this->picChart(),
             'location' => $this->byLocation(),
             'department' => $this->byDepartment(),
-            'hazardCategory' => $this->hazardByCategory(),
-            'hazardLevel' => $this->hazardByLevel(),
-            'rootCause' => $this->rootCauses(),
             'actions' => $this->actionStatus(),
         ];
     }

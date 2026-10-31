@@ -79,55 +79,6 @@
         document.addEventListener('click', function (e) { if (!picker.contains(e.target)) hide(); });
     }
 
-    // --- Baris orang (korban/saksi) pada formulir insiden -------------------------------------
-    function initPersons() {
-        const wrap = document.getElementById('personRows');
-        const tpl = document.getElementById('personTpl');
-        const add = document.getElementById('addPerson');
-        if (!wrap || !tpl || !add) return;
-
-        let idx = parseInt(wrap.dataset.next || '0', 10);
-
-        // Kolom cedera hanya relevan untuk korban.
-        function applyRole(row) {
-            const sel = row.querySelector('[data-role]');
-            row.querySelectorAll('.victim-only').forEach((c) => c.classList.toggle('d-none', !sel || sel.value !== 'korban'));
-        }
-
-        function addRow(role) {
-            const html = tpl.innerHTML.replace(/__i__/g, String(idx++));
-            const holder = document.createElement('div');
-            holder.innerHTML = html.trim();
-            const row = holder.firstElementChild;
-            if (role) { const r = row.querySelector('[data-role]'); if (r) r.value = role; }
-            wrap.appendChild(row);
-            row.querySelectorAll('[data-emp-picker]').forEach(initPicker);
-            applyRole(row);
-            refresh();
-            return row;
-        }
-
-        function refresh() {
-            const empty = document.getElementById('personEmpty');
-            if (empty) empty.classList.toggle('d-none', wrap.children.length > 0);
-        }
-
-        add.addEventListener('click', () => addRow('korban'));
-        document.getElementById('addWitness')?.addEventListener('click', () => addRow('saksi'));
-        wrap.addEventListener('click', function (e) {
-            const btn = e.target.closest('[data-remove-person]');
-            if (btn) { btn.closest('.person-row').remove(); refresh(); }
-        });
-
-        wrap.addEventListener('change', function (e) {
-            if (e.target.matches('[data-role]')) applyRole(e.target.closest('.person-row'));
-        });
-
-        wrap.querySelectorAll('[data-emp-picker]').forEach(initPicker);
-        wrap.querySelectorAll('.person-row').forEach(applyRole);
-        refresh();
-    }
-
     // --- Pemilih matriks risiko 5x5 -----------------------------------------------------------
     function initRiskPicker(root) {
         const levels = JSON.parse(root.dataset.levels || '{}');
@@ -177,23 +128,6 @@
 
     // --- Lain-lain ----------------------------------------------------------------------------
     function initMisc() {
-        // Keparahan awal mengikuti jenis kejadian (selama belum diubah manual).
-        const type = document.getElementById('incidentType');
-        const sev = document.getElementById('incidentSeverity');
-        if (type && sev) {
-            const map = JSON.parse(type.dataset.severity || '{}');
-            const injury = JSON.parse(type.dataset.injury || '{}');
-            let touched = sev.dataset.touched === '1';
-            sev.addEventListener('change', () => { touched = true; });
-            const hint = document.getElementById('injuryHint');
-            const sync = function () {
-                if (!touched && map[type.value]) sev.value = map[type.value];
-                if (hint) hint.classList.toggle('d-none', !injury[type.value]);
-            };
-            type.addEventListener('change', sync);
-            sync();
-        }
-
         // Konfirmasi sebelum tindakan yang tak bisa dibatalkan.
         document.addEventListener('submit', function (e) {
             const msg = e.target.getAttribute && e.target.getAttribute('data-confirm');
@@ -226,7 +160,6 @@
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('[data-emp-picker]').forEach(function (p) { if (!p.closest('#personTpl')) initPicker(p); });
         document.querySelectorAll('[data-risk-picker]').forEach(initRiskPicker);
-        initPersons();
         initMisc();
     });
 })();

@@ -127,6 +127,67 @@ class HrisEmployees
         return array_map(fn ($f) => $f[2], array_slice($found, 0, $limit));
     }
 
+    /** Grade (jenjang) karyawan menurut HRIS, null bila tidak diketahui. */
+    public function gradeOf(?string $nik): ?int
+    {
+        return $this->find($nik)['grade'] ?? null;
+    }
+
+    /**
+     * NIK seluruh bawahan (langsung maupun tidak langsung) menurut atasan langsung di HRIS. Hanya karyawan aktif.
+     *
+     * @return list<string>
+     */
+    public function subordinateNiks(string $nik): array
+    {
+        $children = [];
+        foreach ($this->all() as $row) {
+            if (($row['is_active'] ?? true) && filled($row['supervisor_nik'] ?? null)) {
+                $children[(string) $row['supervisor_nik']][] = (string) $row['employee_no'];
+            }
+        }
+
+        $found = [];
+        $queue = [$nik];
+        while ($queue) {
+            foreach ($children[array_shift($queue)] ?? [] as $child) {
+                if ($child !== $nik && ! isset($found[$child])) {
+                    $found[$child] = true;
+                    $queue[] = $child;
+                }
+            }
+        }
+
+        return array_keys($found);
+    }
+
+    /**
+     * Karyawan aktif ber-grade tertentu (untuk daftar target), dengan nama atasan.
+     *
+     * @param  list<int>  $grades
+     * @param  list<string>|null  $niks  batasi ke NIK ini (null = semua)
+     * @return list<array<string, mixed>>
+     */
+    public function members(array $grades, ?array $niks = null): array
+    {
+        $all = $this->all();
+        $allow = $niks === null ? null : array_flip($niks);
+        $out = [];
+
+        foreach ($all as $nik => $row) {
+            if (! ($row['is_active'] ?? true) || ($allow !== null && ! isset($allow[(string) $nik]))) {
+                continue;
+            }
+            $p = $this->present($row);
+            if (in_array($p['grade'], $grades, true)) {
+                $p['supervisor_name'] = $p['supervisor_nik'] ? ($all[$p['supervisor_nik']]['name'] ?? null) : null;
+                $out[] = $p;
+            }
+        }
+
+        return $out;
+    }
+
     /** Hanya bidang yang dibutuhkan SAP Safety (tanpa data sensitif). */
     private function present(array $row): array
     {
@@ -136,6 +197,8 @@ class HrisEmployees
             'department' => $row['department'] ?? null,
             'division' => $row['division'] ?? null,
             'position' => $row['position'] ?? null,
+            'grade' => isset($row['grade']) ? (int) $row['grade'] : null,
+            'supervisor_nik' => filled($row['supervisor_nik'] ?? null) ? (string) $row['supervisor_nik'] : null,
             'email' => $row['email'] ?? null,
             'is_active' => (bool) ($row['is_active'] ?? true),
         ];
